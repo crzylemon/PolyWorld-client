@@ -7,8 +7,9 @@
 #ifndef PW_CLIENT_VERSION_H
 #define PW_CLIENT_VERSION_H
 
+/* stamp_version.py rewrites this on `make new-version` */
 #ifndef CLIENT_VERSION
-#define CLIENT_VERSION "26.4.1"
+#define CLIENT_VERSION "26.4.2"
 #endif
 
 #endif

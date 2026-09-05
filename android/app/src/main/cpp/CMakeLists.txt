@@ -126,7 +126,7 @@ target_compile_definitions(polyworld PRIVATE
 if(DEFINED CLIENT_VERSION)
     target_compile_definitions(polyworld PRIVATE "CLIENT_VERSION=\"${CLIENT_VERSION}\"")
 else()
-    target_compile_definitions(polyworld PRIVATE "CLIENT_VERSION=\"26.4.1\"")
+    target_compile_definitions(polyworld PRIVATE "CLIENT_VERSION=\"26.4.2\"")
 endif()
 
 target_compile_options(polyworld PRIVATE

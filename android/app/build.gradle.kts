@@ -11,12 +11,12 @@ android {
         applicationId = "games.polyworld.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 26401
-        versionName = "26.4.1"
+        versionCode = 26402
+        versionName = "26.4.2"
 
         externalNativeBuild {
             cmake {
-                val clientVer = (project.findProperty("CLIENT_VERSION") as String?) ?: "26.4.1"
+                val clientVer = (project.findProperty("CLIENT_VERSION") as String?) ?: "26.4.2"
                 arguments += listOf(
                     "-DANDROID_STL=c++_shared",
                     "-DANDROID_ARM_NEON=TRUE",
