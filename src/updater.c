@@ -9,6 +9,7 @@
 
 #include "updater.h"
 #include "prod_urls.h"
+#include "auth.h"
 #include "log.h"
 #include "shader.h"
 #include "client_version.h"
@@ -542,6 +543,17 @@ static void do_update(const char* remote_ver) {
 
 #else
 
+static void updater_fail_msg(const char* detail) {
+    const char* title = g_studio_channel ? "PolyWorld Studio" : "PolyWorld";
+    PW_LOG("Updater: failed: %s\n", detail ? detail : "unknown");
+    fprintf(stderr, "%s update failed: %s\n", title, detail ? detail : "unknown");
+    char cmd[768];
+    snprintf(cmd, sizeof(cmd),
+             "notify-send -u critical '%s' 'Update failed: %s. You can keep using this version.' >/dev/null 2>&1 || true",
+             title, detail ? detail : "unknown error");
+    system(cmd);
+}
+
 static char* curl_download_string(const char* url, const char* extra_flags) {
     char cmd[640];
     const char* curl = (access("/usr/bin/curl", X_OK) == 0) ? "/usr/bin/curl" : "curl";
@@ -590,8 +602,13 @@ static void do_update(const char* remote_ver) {
     snprintf(tmp_tar, sizeof(tmp_tar),
              g_studio_channel ? "/tmp/pwstudio_update.tar.xz" : "/tmp/polyworld_update.tar.xz");
     char dl_cmd[1024];
-    snprintf(dl_cmd, sizeof(dl_cmd), "curl -s --max-time 120 -o '%s' '%s'", tmp_tar, url);
+    const char* curl = (access("/usr/bin/curl", X_OK) == 0) ? "/usr/bin/curl" : "curl";
+    snprintf(dl_cmd, sizeof(dl_cmd),
+             "%s -fL --retry 2 --max-time 120 --connect-timeout 15 -o '%s' '%s'",
+             curl, tmp_tar, url);
+    PW_LOG("Updater: downloading %s\n", url);
     if (system(dl_cmd) != 0) {
+        updater_fail_msg("could not download update");
         close_update_window();
         return;
     }
@@ -602,7 +619,11 @@ static void do_update(const char* remote_ver) {
     char ext_cmd[512];
     snprintf(ext_cmd, sizeof(ext_cmd), "rm -rf %s && mkdir -p %s && tar -xf '%s' -C %s",
              extract_dir, extract_dir, tmp_tar, extract_dir);
-    system(ext_cmd);
+    if (system(ext_cmd) != 0) {
+        updater_fail_msg("could not extract update archive");
+        close_update_window();
+        return;
+    }
 
     const char* bin_name = g_studio_channel ? "polystudio" : "polyworld";
     char new_bin[512];
@@ -613,6 +634,9 @@ static void do_update(const char* remote_ver) {
 
         snprintf(new_bin, sizeof(new_bin), "%s/%s", extract_dir, bin_name);
         if (stat(new_bin, &st) != 0) {
+            updater_fail_msg(g_studio_channel
+                ? "could not find new polystudio in update"
+                : "could not find new polyworld in update");
             close_update_window();
             return;
         }
@@ -625,6 +649,7 @@ static void do_update(const char* remote_ver) {
     snprintf(cp_cmd, sizeof(cp_cmd), "cp '%s' '%s' && chmod +x '%s'", new_bin, self_path, self_path);
     if (system(cp_cmd) != 0) {
         rename(backup, self_path);
+        updater_fail_msg("could not replace running binary");
         close_update_window();
         return;
     }
@@ -639,6 +664,8 @@ static void do_update(const char* remote_ver) {
     if (g_studio_channel) {
         char play_src[512];
         snprintf(play_src, sizeof(play_src), "%s/%s/polyworld", extract_dir, pkg);
+        if (stat(play_src, &st) != 0)
+            snprintf(play_src, sizeof(play_src), "%s/polyworld", extract_dir);
         if (stat(play_src, &st) == 0) {
             char play_dst[512];
             snprintf(play_dst, sizeof(play_dst), "%s/polyworld", bin_dir);
@@ -651,20 +678,30 @@ static void do_update(const char* remote_ver) {
     char new_assets[512];
     snprintf(new_assets, sizeof(new_assets), "%s/%s/assets", extract_dir, pkg);
     struct stat ast;
+    if (stat(new_assets, &ast) != 0)
+        snprintf(new_assets, sizeof(new_assets), "%s/assets", extract_dir);
     if (stat(new_assets, &ast) == 0) {
         char assets_cmd[1024];
         snprintf(assets_cmd, sizeof(assets_cmd),
                  "rm -rf '%s/assets' && cp -r '%s' '%s/assets'", bin_dir, new_assets, bin_dir);
-        system(assets_cmd);
+        if (system(assets_cmd) != 0)
+            PW_LOG("Updater: warning: could not copy updated assets\n");
+    } else {
+        PW_LOG("Updater: warning: update archive had no assets/\n");
     }
 
     remove(tmp_tar);
     close_update_window();
     execl(self_path, self_path, (char*)NULL);
+    updater_fail_msg("could not relaunch after update");
 }
 #endif
 
 void updater_check(void) {
+
+    if (!pw_site_is_production()) {
+        return;
+    }
 
     if (strstr(CLIENT_VERSION, "demo") != NULL) {
         return;

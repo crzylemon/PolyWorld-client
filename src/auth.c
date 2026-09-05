@@ -32,6 +32,13 @@ bool auth_load_session(char* out_token, size_t out_size) {
     return false;
 }
 void auth_set_session_filename(const char* filename) { (void)filename; }
+void pw_set_site_origin(const char* origin) { (void)origin; }
+const char* pw_site_origin(void) { return PW_SITE_ORIGIN; }
+void pw_set_tcp_endpoint(const char* host, int port) { (void)host; (void)port; }
+const char* pw_tcp_host(void) { return PW_TCP_HOST; }
+int pw_tcp_port(void) { return PW_TCP_PORT; }
+bool pw_site_is_production(void) { return true; }
+void pw_use_local_site(void) {}
 JoinTicket auth_get_join_ticket(const char* session_token, int game_id, bool guest, int server_id, bool shadowed) {
     (void)session_token; (void)game_id; (void)guest; (void)server_id; (void)shadowed;
     return (JoinTicket){0};
@@ -47,6 +54,59 @@ void auth_set_session_filename(const char* filename) {
     }
     snprintf(g_session_filename, sizeof(g_session_filename), "%s", filename);
 }
+
+static char g_site_origin[192] = PW_SITE_ORIGIN;
+static char g_tcp_host[128] = PW_TCP_HOST;
+static int g_tcp_port = PW_TCP_PORT;
+
+void pw_set_site_origin(const char* origin) {
+    if (!origin || !origin[0]) {
+        snprintf(g_site_origin, sizeof(g_site_origin), "%s", PW_SITE_ORIGIN);
+        return;
+    }
+    size_t n = strlen(origin);
+    while (n > 0 && origin[n - 1] == '/') n--;
+    if (n >= sizeof(g_site_origin)) n = sizeof(g_site_origin) - 1;
+    memcpy(g_site_origin, origin, n);
+    g_site_origin[n] = '\0';
+}
+
+const char* pw_site_origin(void) {
+    return g_site_origin;
+}
+
+void pw_set_tcp_endpoint(const char* host, int port) {
+    if (host && host[0])
+        snprintf(g_tcp_host, sizeof(g_tcp_host), "%s", host);
+    if (port > 0)
+        g_tcp_port = port;
+}
+
+const char* pw_tcp_host(void) {
+    return g_tcp_host;
+}
+
+int pw_tcp_port(void) {
+    return g_tcp_port;
+}
+
+bool pw_site_is_production(void) {
+    return strcmp(g_site_origin, PW_SITE_ORIGIN) == 0;
+}
+
+void pw_use_local_site(void) {
+    const char* origin = getenv("PW_LOCAL_SITE");
+    if (!origin || !origin[0]) origin = "https://polyworld.localhost";
+    pw_set_site_origin(origin);
+    const char* tcp = getenv("PW_LOCAL_TCP");
+    pw_set_tcp_endpoint((tcp && tcp[0]) ? tcp : "127.0.0.1", PW_TCP_PORT);
+    auth_set_session_filename("polyworld_session_local.dat");
+}
+
+static void pw_fmt_api(char* buf, size_t n, const char* file) {
+    snprintf(buf, n, "%s/api/%s", g_site_origin, file ? file : "");
+}
+
 #include <stdio.h>
 
 static bool json_get_string(const char* json, const char* key, char* out, size_t out_size) {
@@ -192,7 +252,9 @@ AuthResult auth_login(const char* username, const char* password) {
     AuthResult result = {0};
     char postdata[512];
     snprintf(postdata, sizeof(postdata), "action=login&username=%s&password=%s", username, password);
-    char* resp = do_http_post(AUTH_API_URL, postdata);
+    char url[256];
+    pw_fmt_api(url, sizeof(url), "auth.php");
+    char* resp = do_http_post(url, postdata);
     if (!resp) {
         fprintf(stderr, "Error: login request failed\n");
         snprintf(result.error, sizeof(result.error), "Network error");
@@ -213,7 +275,9 @@ AuthResult auth_login_2fa(const char* challenge, const char* code) {
     char postdata[512];
     snprintf(postdata, sizeof(postdata), "action=login_2fa&challenge=%s&code=%s",
              challenge ? challenge : "", enc_code);
-    char* resp = do_http_post(AUTH_API_URL, postdata);
+    char url[256];
+    pw_fmt_api(url, sizeof(url), "auth.php");
+    char* resp = do_http_post(url, postdata);
     if (!resp) {
         fprintf(stderr, "Error: 2FA login request failed\n");
         snprintf(result.error, sizeof(result.error), "Network error");
@@ -231,7 +295,9 @@ AuthResult auth_validate_token(const char* token) {
     AuthResult result = {0};
     char postdata[256];
     snprintf(postdata, sizeof(postdata), "action=validate&token=%s", token);
-    char* resp = do_http_post(AUTH_API_URL, postdata);
+    char url[256];
+    pw_fmt_api(url, sizeof(url), "auth.php");
+    char* resp = do_http_post(url, postdata);
     if (!resp) { fprintf(stderr, "Error: validate request\n"); return result; }
     if (json_get_string(resp, "username", result.username, sizeof(result.username))) {
         strncpy(result.token, token, sizeof(result.token) - 1);
@@ -298,7 +364,9 @@ JoinTicket auth_get_join_ticket(const char* session_token, int game_id, bool gue
             snprintf(postdata, sizeof(postdata), "action=create&game_id=%d&session_token=%s&ver=%s&shadowed=%d",
                      game_id, session_token, CLIENT_VERSION, sh);
     }
-    char* resp = do_http_post(TICKET_API_URL, postdata);
+    char url[256];
+    pw_fmt_api(url, sizeof(url), "join_ticket.php");
+    char* resp = do_http_post(url, postdata);
     if (!resp) { fprintf(stderr, "[Auth] Join ticket request failed\n");
         snprintf(ticket.error, sizeof(ticket.error), "Network error");
         return ticket; }
@@ -379,7 +447,9 @@ bool auth_rate_game(const char* session_token, int game_id, int rating,
     snprintf(postdata, sizeof(postdata),
              "action=rate&game_id=%d&rating=%d&session_token=%s",
              game_id, rating, session_token);
-    char* resp = do_http_post(GAMES_API_URL, postdata);
+    char url[256];
+    pw_fmt_api(url, sizeof(url), "games.php");
+    char* resp = do_http_post(url, postdata);
     if (!resp) return false;
     bool ok = strstr(resp, "\"ok\"") != NULL;
     if (ok) {
@@ -395,8 +465,10 @@ bool auth_avatar_get(const char* session_token, char* skin_out, size_t skin_sz,
                      int* shirt, int* pants, int* head, int* accessory,
                      int accessories_out[PW_MAX_EQUIPPED_ACCESSORIES]) {
     if (!session_token || !session_token[0]) return false;
+    char api[256];
     char url[512];
-    snprintf(url, sizeof(url), "%s?action=get&session_token=%s", AVATAR_API_URL, session_token);
+    pw_fmt_api(api, sizeof(api), "avatar.php");
+    snprintf(url, sizeof(url), "%s?action=get&session_token=%s", api, session_token);
     size_t len = 0;
     char* resp = (char*)platform_http_get(url, &len);
     if (!resp) return false;
@@ -422,8 +494,10 @@ bool auth_avatar_get(const char* session_token, char* skin_out, size_t skin_sz,
 bool auth_avatar_inventory(const char* session_token, void* items_out, int max_items, int* out_count) {
     if (out_count) *out_count = 0;
     if (!session_token || !session_token[0] || !items_out || max_items <= 0) return false;
+    char api[256];
     char url[512];
-    snprintf(url, sizeof(url), "%s?action=inventory&session_token=%s", AVATAR_API_URL, session_token);
+    pw_fmt_api(api, sizeof(api), "avatar.php");
+    snprintf(url, sizeof(url), "%s?action=inventory&session_token=%s", api, session_token);
     size_t len = 0;
     char* resp = (char*)platform_http_get(url, &len);
     if (!resp) return false;
@@ -510,7 +584,9 @@ bool auth_avatar_save(const char* session_token, const char* skin_color,
     snprintf(postdata, sizeof(postdata),
              "action=save&session_token=%s&color=%s&shirt=%d&pants=%d&head=%d&accessories=%s",
              session_token, skin_color, shirt, pants, head, acc_csv);
-    char* resp = do_http_post(AVATAR_API_URL, postdata);
+    char url[256];
+    pw_fmt_api(url, sizeof(url), "avatar.php");
+    char* resp = do_http_post(url, postdata);
     if (!resp) return false;
     bool ok = strstr(resp, "\"ok\"") != NULL;
     if (ok && out_package)
@@ -534,7 +610,9 @@ bool auth_avatar_equip_emotes(const char* session_token,
     snprintf(postdata, sizeof(postdata),
              "action=equip&slot=emote&emotes=%s&session_token=%s",
              csv, session_token);
-    char* resp = do_http_post(AVATAR_API_URL, postdata);
+    char url[256];
+    pw_fmt_api(url, sizeof(url), "avatar.php");
+    char* resp = do_http_post(url, postdata);
     if (!resp) return false;
     bool ok = strstr(resp, "\"ok\"") != NULL;
     free(resp);

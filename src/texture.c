@@ -53,6 +53,14 @@ TextureID texture_load_from_memory(const uint8_t* data, int width, int height, i
     return (TextureID)tex;
 }
 
+void texture_set_overlay_sampling(TextureID tex) {
+    if (!tex) return;
+    glBindTexture(GL_TEXTURE_2D, (GLuint)tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 static void pw_downsample_rgba(const uint8_t* src, int sw, int sh,
                                uint8_t* dst, int dw, int dh) {
     for (int y = 0; y < dh; y++) {

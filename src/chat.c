@@ -523,11 +523,17 @@ void chat_blur(Chat* c) {
 
 bool chat_on_key(Chat* c, int keycode, bool shift, bool ctrl) {
     (void)shift;
-    if (c && c->focused && ctrl) {
+
+    if (ctrl && c && c->focused) {
         if (keycode == 65 || keycode == 'a' || keycode == 'A')
             return chat_select_all_input(c);
+        if (keycode == 67 || keycode == 'c' || keycode == 'C')
+            return chat_copy_input(c);
         if (keycode == 88 || keycode == 'x' || keycode == 'X')
             return chat_cut_input(c);
+        if (keycode == 86 || keycode == 'v' || keycode == 'V')
+            return chat_paste_text(c, platform_clipboard_get());
+        return true;
     }
 
     if (!c->focused && (keycode == 191 || keycode == 47 || keycode == '/')) {
@@ -708,16 +714,19 @@ void chat_set_input_text(Chat* c, const char* utf8) {
 
 bool chat_copy_input(Chat* c) {
     if (!c || !c->focused) return false;
-    platform_clipboard_set(c->input_buf);
+    te_copy(c->input_buf, &c->edit, c->input_len, true);
     return true;
 }
 
 bool chat_cut_input(Chat* c) {
     if (!c || !c->focused) return false;
-    platform_clipboard_set(c->input_buf);
-    c->input_len = 0;
-    c->input_buf[0] = '\0';
-    te_reset(&c->edit, 0);
+    if (!te_cut(c->input_buf, &c->input_len, &c->edit, false)) {
+        if (c->input_len > 0) platform_clipboard_set(c->input_buf);
+        c->input_len = 0;
+        c->input_buf[0] = '\0';
+        te_reset(&c->edit, 0);
+    }
+    c->emoji_sel = 0;
     return true;
 }
 

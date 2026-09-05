@@ -9,12 +9,25 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
 #include "accessory.h"
 #include "emote.h"
 #include "prod_urls.h"
 
 #define AUTH_API_URL PW_AUTH_API_URL
 #define TICKET_API_URL PW_TICKET_API_URL
+
+void pw_set_site_origin(const char* origin);
+const char* pw_site_origin(void);
+void pw_set_tcp_endpoint(const char* host, int port);
+const char* pw_tcp_host(void);
+int pw_tcp_port(void);
+bool pw_site_is_production(void);
+void pw_use_local_site(void);
+
+static inline bool pw_error_is_client_outdated(const char* err) {
+    return err && err[0] && strstr(err, "no longer supported") != NULL;
+}
 
 typedef struct {
     bool authenticated;

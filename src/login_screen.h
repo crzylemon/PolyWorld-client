@@ -149,9 +149,11 @@ typedef struct {
     int banner_icon_w, banner_icon_h;
     bool banner_icon_loaded;
     bool banner_icon_loading;
+    bool update_required;
 } LoginScreen;
 
 void login_screen_init(LoginScreen* ls);
+void login_screen_require_update(LoginScreen* ls);
 bool login_screen_update(LoginScreen* ls, float dt);
 void login_screen_render(LoginScreen* ls, int width, int height);
 void login_screen_render_to(LoginScreen* ls, int width, int height, unsigned int fbo);

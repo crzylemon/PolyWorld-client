@@ -463,8 +463,8 @@ void main() {
         return;
     } else if (u_has_texture == 5) {
         vec4 tex = texture(u_texture, v_texcoord);
-        if (tex.a * u_alpha < 0.02) discard;
         float a = clamp(tex.a, 0.0, 1.0);
+        if (a * u_alpha < 0.004) discard;
         base_color = (tex.rgb / max(a, 0.001)) * u_color;
         out_alpha = u_alpha * a;
     }

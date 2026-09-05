@@ -16,6 +16,7 @@
 #include "ui_theme.h"
 #include "game_menu.h"
 #include "text_edit.h"
+#include "client_version.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -259,6 +260,9 @@ static float games_grid_y(const LoginScreen* ls) {
 static unsigned int g_logo_tex = 0;
 static unsigned int g_checked_tex = 0;
 static unsigned int g_unchecked_tex = 0;
+static unsigned int g_update_tex = 0;
+static int g_update_tw = 0;
+static int g_update_th = 0;
 static int g_logo_w = 0, g_logo_h = 0;
 static unsigned int g_tex_shader = 0;
 static unsigned int g_color_shader = 0;
@@ -1412,19 +1416,19 @@ static void login_fetch_games(LoginScreen* ls) {
     char url[512];
     if (games_tab_is_my_games(ls)) {
         snprintf(url, sizeof(url),
-            "https://polyworld.games/api/games.php?action=my_list&session_token=%s",
-            ls->session_token);
+            "%s/api/games.php?action=my_list&session_token=%s",
+            pw_site_origin(), ls->session_token);
     } else {
         if (ls->games_tab < 0 || ls->games_tab > 3) ls->games_tab = 0;
         const char* sort = games_tab_sort(ls->games_tab);
         if (ls->session_token[0] && strcmp(sort, "recommended") == 0) {
             snprintf(url, sizeof(url),
-                "https://polyworld.games/api/games.php?action=public_list&sort=recommended&session_token=%s",
-                ls->session_token);
+                "%s/api/games.php?action=public_list&sort=recommended&session_token=%s",
+                pw_site_origin(), ls->session_token);
         } else {
             snprintf(url, sizeof(url),
-                "https://polyworld.games/api/games.php?action=public_list&sort=%s",
-                sort);
+                "%s/api/games.php?action=public_list&sort=%s",
+                pw_site_origin(), sort);
         }
     }
 
@@ -1610,9 +1614,9 @@ static void login_pump_thumbs(LoginScreen* ls) {
     for (int fi = 0; fi < ls->friend_count; fi++) {
         if (ls->friends[fi].avatar_loaded || ls->friends[fi].avatar_loading || ls->friends[fi].id <= 0)
             continue;
-        char aurl[192];
+        char aurl[256];
         snprintf(aurl, sizeof(aurl),
-            "https://polyworld.games/uploads/avatars/%d.png", ls->friends[fi].id);
+            "%s/uploads/avatars/%d.png", pw_site_origin(), ls->friends[fi].id);
         if (login_thumb_start_url(ls, LOGIN_THUMB_FRIEND, fi, aurl)) {
             if (g_login_thumbs_inflight >= LOGIN_THUMB_MAX_INFLIGHT) return;
         }
@@ -1697,10 +1701,10 @@ static void login_fetch_home(LoginScreen* ls) {
 
     // Friends
     {
-        char url[256];
+        char url[512];
         snprintf(url, sizeof(url),
-            "https://polyworld.games/api/friends.php?action=list&session_token=%s",
-            ls->session_token);
+            "%s/api/friends.php?action=list&session_token=%s",
+            pw_site_origin(), ls->session_token);
         size_t resp_len = 0;
         char* resp = (char*)platform_http_get(url, &resp_len);
         if (resp && resp_len > 0) {
@@ -1757,10 +1761,10 @@ static void login_fetch_home(LoginScreen* ls) {
     }
 
     {
-        char url[256];
+        char url[512];
         snprintf(url, sizeof(url),
-            "https://polyworld.games/api/games.php?action=continue&session_token=%s",
-            ls->session_token);
+            "%s/api/games.php?action=continue&session_token=%s",
+            pw_site_origin(), ls->session_token);
         size_t resp_len = 0;
         char* resp = (char*)platform_http_get(url, &resp_len);
         if (resp && resp_len > 0) {
@@ -1812,7 +1816,8 @@ static void login_fetch_home(LoginScreen* ls) {
     }
 
     {
-        const char* url = "https://polyworld.games/api/games.php?action=gotw_winners";
+        char url[256];
+        snprintf(url, sizeof(url), "%s/api/games.php?action=gotw_winners", pw_site_origin());
         size_t resp_len = 0;
         char* resp = (char*)platform_http_get(url, &resp_len);
         if (resp && resp_len > 0) {
@@ -1905,11 +1910,11 @@ static void login_fetch_game_detail(LoginScreen* ls) {
     char url[640];
     if (ls->session_token[0]) {
         snprintf(url, sizeof(url),
-            "https://polyworld.games/api/games.php?action=public_get&id=%d&session_token=%s",
-            gid, ls->session_token);
+            "%s/api/games.php?action=public_get&id=%d&session_token=%s",
+            pw_site_origin(), gid, ls->session_token);
     } else {
         snprintf(url, sizeof(url),
-            "https://polyworld.games/api/games.php?action=public_get&id=%d", gid);
+            "%s/api/games.php?action=public_get&id=%d", pw_site_origin(), gid);
     }
     size_t resp_len = 0;
     char* resp = (char*)platform_http_get(url, &resp_len);
@@ -2025,6 +2030,7 @@ void login_screen_invalidate_gl(LoginScreen* ls, bool context_alive) {
         if (g_logo_tex) glDeleteTextures(1, &g_logo_tex);
         if (g_checked_tex) glDeleteTextures(1, &g_checked_tex);
         if (g_unchecked_tex) glDeleteTextures(1, &g_unchecked_tex);
+        if (g_update_tex) glDeleteTextures(1, &g_update_tex);
         if (ls) {
             login_clear_game_thumbs(ls);
             login_clear_home_thumbs(ls);
@@ -2075,8 +2081,56 @@ void login_screen_invalidate_gl(LoginScreen* ls, bool context_alive) {
     g_logo_tex = 0;
     g_checked_tex = 0;
     g_unchecked_tex = 0;
+    g_update_tex = 0;
+    g_update_tw = g_update_th = 0;
     g_logo_w = g_logo_h = 0;
     g_initialized = false;
+}
+
+static void login_open_downloads(void) {
+    char url[320];
+    snprintf(url, sizeof(url), "%s/downloads/", pw_site_origin());
+    platform_open_url(url);
+}
+
+#ifdef __ANDROID__
+static int login_cmp_ver(const char* local, const char* remote) {
+    int l[3] = {0, 0, 0};
+    int r[3] = {0, 0, 0};
+    sscanf(local ? local : "", "%d.%d.%d", &l[0], &l[1], &l[2]);
+    sscanf(remote ? remote : "", "%d.%d.%d", &r[0], &r[1], &r[2]);
+    if (r[0] != l[0]) return r[0] - l[0];
+    if (r[1] != l[1]) return r[1] - l[1];
+    return r[2] - l[2];
+}
+
+static void login_android_check_remote_version(LoginScreen* ls) {
+    static bool checked;
+    if (checked || !ls) return;
+    checked = true;
+    if (!pw_site_is_production()) return;
+    if (strstr(CLIENT_VERSION, "demo") != NULL) return;
+    char url[320];
+    snprintf(url, sizeof(url), "%s/latestclient.txt", pw_site_origin());
+    size_t n = 0;
+    char* remote = (char*)platform_http_get(url, &n);
+    if (!remote || n == 0) {
+        free(remote);
+        return;
+    }
+    while (n > 0 && (remote[n - 1] == '\n' || remote[n - 1] == '\r' || remote[n - 1] == ' '))
+        remote[--n] = '\0';
+    int dummy[3];
+    if (sscanf(remote, "%d.%d.%d", &dummy[0], &dummy[1], &dummy[2]) >= 2) {
+        if (login_cmp_ver(CLIENT_VERSION, remote) > 0)
+            ls->update_required = true;
+    }
+    free(remote);
+}
+#endif
+
+void login_screen_require_update(LoginScreen* ls) {
+    if (ls) ls->update_required = true;
 }
 
 void login_screen_init(LoginScreen* ls) {
@@ -2093,11 +2147,15 @@ void login_screen_init(LoginScreen* ls) {
     te_reset(&s_login_user_edit, 0);
     te_reset(&s_login_pass_edit, 0);
     s_login_field_drag = false;
+#ifdef __ANDROID__
+    login_android_check_remote_version(ls);
+#endif
 }
 
 bool login_screen_update(LoginScreen* ls, float dt) {
     if (dt < 0.0f) dt = 0.0f;
     if (dt > 0.05f) dt = 0.05f;
+    if (ls->update_required) return false;
     if (ls->ignore_pointer_until_up && !input_mouse_left_held()) {
         ls->ignore_pointer_until_up = false;
     }
@@ -2399,6 +2457,10 @@ bool login_screen_update(LoginScreen* ls, float dt) {
                 ls->user_id = ticket.user_id;
                 return true; // ready to connect
             } else {
+#ifdef __ANDROID__
+                if (pw_error_is_client_outdated(ticket.error))
+                    ls->update_required = true;
+#endif
                 if (ticket.error[0])
                     snprintf(ls->error, sizeof(ls->error), "Server rejected join: %s", ticket.error);
                 else
@@ -2496,6 +2558,17 @@ void login_screen_render_to(LoginScreen* ls, int width, int height, unsigned int
 
     g_scale_x = (float)vwidth / (float)IMG_W;
     g_scale_y = (float)vheight / (float)IMG_H;
+
+    if (ls->update_required) {
+        if (!g_update_tex)
+            g_update_tex = login_load_texture_file("assets/android_update.png", &g_update_tw, &g_update_th);
+        if (g_update_tex)
+            draw_tex_img(g_update_tex, 0.0f, 0.0f, (float)IMG_W, (float)IMG_H);
+        else
+            draw_text_title_scaled("Update required", 40.0f, 320.0f, 1.0f, 1.0f, 1.0f, vwidth, vheight);
+        glEnable(GL_DEPTH_TEST);
+        return;
+    }
 
     if (ls->phase == 0) {
         // Log in section
@@ -3175,6 +3248,11 @@ void login_screen_render_to(LoginScreen* ls, int width, int height, unsigned int
 }
 
 void login_screen_on_key(LoginScreen* ls, int keycode, bool shift, bool ctrl) {
+    if (ls->update_required) {
+        if (keycode == 13)
+            login_open_downloads();
+        return;
+    }
     if (ls->logout_confirm) {
         if (keycode == 27) { // Escape key
             ls->logout_confirm = false;
@@ -3296,6 +3374,11 @@ void login_screen_on_mousedown(LoginScreen* ls, int x, int y) {
     int iy = (int)(((float)(y - g_hit_oy) * (float)IMG_H) / (float)g_hit_h);
     x = ix;
     y = iy;
+
+    if (ls->update_required) {
+        login_open_downloads();
+        return;
+    }
 
     if (ls->logout_confirm) {
         float panel_x, panel_y, panel_w, panel_h, cancel_x, yes_x, btn_y, btn_w, btn_h;
@@ -3567,7 +3650,7 @@ void login_screen_on_mousedown(LoginScreen* ls, int x, int y) {
 }
 
 bool login_screen_on_scroll(LoginScreen* ls, float delta) {
-    if (!ls || ls->phase != 1 || ls->games_loading) return false;
+    if (!ls || ls->update_required || ls->phase != 1 || ls->games_loading) return false;
     // when over the games rail we do horizontal scrolling.
     if (login_is_home_user(ls) && ls->games_fetched) {
         const InputState* in = input_get_state();
@@ -3586,6 +3669,7 @@ bool login_screen_on_scroll(LoginScreen* ls, float delta) {
 
 
 void login_screen_on_char(LoginScreen* ls, unsigned int codepoint) {
+    if (ls->update_required) return;
     if (codepoint < 32 || codepoint > 126) return;
     if (ls->awaiting_2fa)
         ls->active_field = 1;

@@ -43,6 +43,7 @@ typedef struct {
     char input_buf[CHAT_MAX_INPUT];
     int input_len;
     TextEdit edit;
+    float caret_t;
     bool open;
     bool focused;
     bool just_focused;

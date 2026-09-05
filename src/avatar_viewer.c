@@ -65,7 +65,7 @@ void input_on_mousedown(int b) { (void)b; }
 void input_on_mouseup(int b) { (void)b; }
 void input_on_mousemove(float dx, float dy) { (void)dx; (void)dy; }
 void input_on_scroll(float d) { (void)d; }
-bool chat_handle_key(int k, bool s, bool c) { (void)k; (void)s; (void)c; return false; }
+bool chat_handle_key(int k, bool s) { (void)k; (void)s; return false; }
 bool chat_handle_char(unsigned int c) { (void)c; return false; }
 bool chat_handle_click(float x, float y) { (void)x; (void)y; return false; }
 

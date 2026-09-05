@@ -51,7 +51,7 @@ extern void input_on_scroll(float delta);
 extern void resize_canvas(int width, int height);
 extern void input_set_mouse_pos(float x, float y);
 
-extern bool chat_handle_key(int keycode, bool shift, bool ctrl);
+extern bool chat_handle_key(int keycode, bool shift);
 extern bool chat_handle_char(unsigned int codepoint);
 extern bool chat_handle_click(float x, float y);
 
@@ -180,7 +180,6 @@ static int glfw_to_js_keycode(int key) {
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     (void)scancode;
     bool shift = (mods & GLFW_MOD_SHIFT) != 0;
-    bool ctrl = (mods & GLFW_MOD_CONTROL) != 0;
 
     if (key == GLFW_KEY_F2 && action == GLFW_PRESS) {
         take_screenshot(window);
@@ -195,12 +194,6 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
             } else if (key == GLFW_KEY_V) {
                 extern bool chat_handle_paste(void);
                 if (chat_handle_paste()) return;
-            } else if (key == GLFW_KEY_X) {
-                extern bool chat_handle_cut(void);
-                if (chat_handle_cut()) return;
-            } else if (key == GLFW_KEY_A) {
-                extern bool chat_handle_select_all(void);
-                if (chat_handle_select_all()) return;
             }
         }
 
@@ -230,7 +223,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
             case GLFW_KEY_SLASH: chat_key = 191; break;
             default: break;
         }
-        if (chat_key && chat_handle_key(chat_key, shift, ctrl)) return;
+        if (chat_key && chat_handle_key(chat_key, shift)) return;
     }
 
     int js_key = glfw_to_js_keycode(key);
@@ -238,7 +231,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 
     if (action == GLFW_PRESS) {
 
-        if (chat_handle_key(js_key, shift, ctrl)) return;
+        if (chat_handle_key(js_key, shift)) return;
         input_on_keydown(js_key);
     } else if (action == GLFW_RELEASE) {
         input_on_keyup(js_key);

@@ -531,15 +531,19 @@ bool renderer_init(Renderer* r, int canvas_width, int canvas_height, bool studio
     emscripten_webgl_enable_extension(ctx, "EXT_color_buffer_float");
     emscripten_webgl_enable_extension(ctx, "OES_texture_float_linear");
 #elif !PW_USE_GLES
+
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if (err != GLEW_OK) {
-        if (glCreateShader == NULL || glCreateProgram == NULL)
+
+        if (glCreateShader == NULL || glCreateProgram == NULL) {
             return false;
-        while (glGetError() != GL_NO_ERROR) {}
-    } else {
-        while (glGetError() != GL_NO_ERROR) {}
+        }
+
+        PW_ERR(ERR_GENERIC, "glew is a fricking idiot bro like wdym \"%s\" just let me use opengl\n", glewGetErrorString(err));
     }
+
+    while (glGetError() != GL_NO_ERROR) {}
     glEnable(GL_MULTISAMPLE);
 #endif
 
@@ -2409,6 +2413,233 @@ static void renderer_bind_vsm_receive(Renderer* r) {
         glUniform1i(r->shader.u_shadow_face_ids, 1);
 }
 
+#define PW_TRANS_FACE_MAX (MAX_ENTITIES * 6)
+
+typedef struct {
+    uint16_t ei;
+    int8_t face;
+    uint8_t front;
+    float key;
+} TransItem;
+
+static int trans_item_cmp(const void* a, const void* b) {
+    const TransItem* ta = (const TransItem*)a;
+    const TransItem* tb = (const TransItem*)b;
+    if (ta->key < tb->key) return 1;
+    if (ta->key > tb->key) return -1;
+    if (ta->ei != tb->ei) return (int)ta->ei - (int)tb->ei;
+    return (int)ta->face - (int)tb->face;
+}
+
+static void trans_face_local(const GPUMesh* m, int face, float* lx, float* ly, float* lz) {
+    float cx = 0.5f * (m->aabb_min[0] + m->aabb_max[0]);
+    float cy = 0.5f * (m->aabb_min[1] + m->aabb_max[1]);
+    float cz = 0.5f * (m->aabb_min[2] + m->aabb_max[2]);
+    switch (face) {
+        case 0: *lx = cx; *ly = cy; *lz = m->aabb_max[2]; break;
+        case 1: *lx = cx; *ly = cy; *lz = m->aabb_min[2]; break;
+        case 2: *lx = cx; *ly = m->aabb_max[1]; *lz = cz; break;
+        case 3: *lx = cx; *ly = m->aabb_min[1]; *lz = cz; break;
+        case 4: *lx = m->aabb_max[0]; *ly = cy; *lz = cz; break;
+        default: *lx = m->aabb_min[0]; *ly = cy; *lz = cz; break;
+    }
+}
+
+static void trans_draw_elems(const GPUMesh* m, int only_face, GLsizei fallback_count) {
+    if (only_face >= 0 && only_face < 6 && m && m->index_count >= (size_t)((only_face + 1) * 6)) {
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
+                       (const void*)(size_t)(only_face * 6 * sizeof(uint32_t)));
+        return;
+    }
+    glDrawElements(GL_TRIANGLES, fallback_count, GL_UNSIGNED_INT, 0);
+}
+
+static void renderer_draw_scene_entity(Renderer* r, const Entity* e, const Mat4* model,
+                                       GPUMesh* draw_mesh, float alpha, int only_face) {
+    if (!e || !model || !draw_mesh || !draw_mesh->vao) return;
+
+    glUniformMatrix4fv(r->shader.u_model, 1, GL_FALSE, model->m);
+    glUniform3f(r->shader.u_color, e->material.color.x, e->material.color.y, e->material.color.z);
+
+    if (r->shader.u_part_size >= 0) {
+        float psx = fabsf(e->transform.scale.x);
+        float psy = fabsf(e->transform.scale.y);
+        float psz = fabsf(e->transform.scale.z);
+        if (psx < 1e-4f) psx = 1.0f;
+        if (psy < 1e-4f) psy = 1.0f;
+        if (psz < 1e-4f) psz = 1.0f;
+        glUniform3f(r->shader.u_part_size, psx, psy, psz);
+    }
+    if (r->shader.u_part_shape >= 0) {
+        int shape = (draw_mesh->prim_kind == 1 || draw_mesh->prim_kind == 2)
+            ? (int)draw_mesh->prim_kind : 0;
+        glUniform1i(r->shader.u_part_shape, shape);
+    }
+    renderer_bind_part_material(r, e->material.part_material);
+    if (r->shader.u_glow >= 0)
+        glUniform1f(r->shader.u_glow, e->material.glow);
+    if (r->shader.u_alpha >= 0)
+        glUniform1f(r->shader.u_alpha, alpha);
+    if (r->shader.u_contact_shade >= 0)
+        glUniform1f(r->shader.u_contact_shade, 0.0f);
+
+    glBindVertexArray(draw_mesh->vao);
+
+    if (!draw_mesh->has_colors) {
+        glDisableVertexAttribArray(3);
+        glVertexAttrib3f(3, 1.0f, 1.0f, 1.0f);
+    }
+
+    const bool is_box = (draw_mesh->index_count == 36);
+    const int recv_face_ids = 1;
+    const GLsizei full_count = (GLsizei)draw_mesh->index_count;
+
+    if (e->material.texture_id && draw_mesh->has_texcoords) {
+        if (r->shader.u_shadow_id >= 0)
+            glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
+        if (r->shader.u_shadow_face_ids >= 0)
+            glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, e->material.texture_id);
+        glUniform1i(r->shader.u_has_texture, e->material.texture_mode);
+        trans_draw_elems(draw_mesh, is_box ? only_face : -1, full_count);
+    } else if (draw_mesh->has_texcoords) {
+        static const int face_to_surface[] = { 2, 3, 0, 1, 5, 4 };
+
+        bool all_smooth = true;
+        if (e->material.part_material == PART_MATERIAL_PLASTIC) {
+            for (int s = 0; s < 6; s++) {
+                if (e->material.surfaces[s] != SURFACE_SMOOTH) { all_smooth = false; break; }
+            }
+        }
+
+        bool use_face_mode = !all_smooth &&
+                             r->shader.u_face_mode >= 0 && r->shader.u_face_surf >= 0;
+        if (use_face_mode) {
+            int face_surf[6];
+            for (int face = 0; face < 6; face++) {
+                SurfaceType st = e->material.surfaces[face_to_surface[face]];
+                face_surf[face] = (st == SURFACE_STUD) ? 1 : (st == SURFACE_INLET) ? 2 : 0;
+            }
+            if (r->shader.u_shadow_id >= 0)
+                glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
+            if (r->shader.u_shadow_face_ids >= 0)
+                glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
+            glUniform1i(r->shader.u_face_mode, 1);
+            glUniform1iv(r->shader.u_face_surf, 6, face_surf);
+            glUniform1i(r->shader.u_has_texture, 0);
+            TextureID stud = texture_get_for_surface(&r->textures, SURFACE_STUD);
+            TextureID inlet = texture_get_for_surface(&r->textures, SURFACE_INLET);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, stud != TEXTURE_INVALID ? stud : 0);
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, inlet != TEXTURE_INVALID ? inlet : 0);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glActiveTexture(GL_TEXTURE0);
+            trans_draw_elems(draw_mesh, is_box ? only_face : -1, full_count);
+            glUniform1i(r->shader.u_face_mode, 0);
+        } else if (!is_box) {
+            if (r->shader.u_shadow_id >= 0)
+                glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
+            if (r->shader.u_shadow_face_ids >= 0)
+                glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
+            glUniform1i(r->shader.u_has_texture, 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            trans_draw_elems(draw_mesh, -1, full_count);
+        } else if (!r->shadows_enabled) {
+            if (r->shader.u_shadow_id >= 0)
+                glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
+            glUniform1i(r->shader.u_has_texture, 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            trans_draw_elems(draw_mesh, only_face, 36);
+        } else if (all_smooth) {
+            if (r->shader.u_shadow_id >= 0)
+                glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
+            if (r->shader.u_shadow_face_ids >= 0)
+                glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
+            glUniform1i(r->shader.u_has_texture, 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            trans_draw_elems(draw_mesh, only_face, 36);
+        } else {
+            bool all_same = true;
+            SurfaceType first_surf = e->material.surfaces[0];
+            for (int s = 1; s < 6; s++) {
+                if (e->material.surfaces[s] != first_surf) { all_same = false; break; }
+            }
+            if (all_same) {
+                if (r->shader.u_shadow_id >= 0)
+                    glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
+                if (r->shader.u_shadow_face_ids >= 0)
+                    glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
+                TextureID tex = texture_get_for_surface(&r->textures, first_surf);
+                TextureID norm_tex = texture_get_normal_for_surface(&r->textures, first_surf);
+                if (tex != TEXTURE_INVALID) {
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, tex);
+                    glUniform1i(r->shader.u_has_texture, 1);
+                } else {
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, 0);
+                    glUniform1i(r->shader.u_has_texture, 0);
+                }
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, norm_tex != TEXTURE_INVALID ? norm_tex : 0);
+                glUniform1i(r->shader.u_normal_map, 2);
+                glActiveTexture(GL_TEXTURE1);
+                glActiveTexture(GL_TEXTURE0);
+                trans_draw_elems(draw_mesh, only_face, 36);
+            } else {
+                for (int face = 0; face < 6; face++) {
+                    if (only_face >= 0 && face != only_face) continue;
+                    if (r->shader.u_shadow_id >= 0)
+                        glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
+                    if (r->shader.u_shadow_face_ids >= 0)
+                        glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
+
+                    int surf_idx = face_to_surface[face];
+                    SurfaceType st = e->material.surfaces[surf_idx];
+                    TextureID tex = texture_get_for_surface(&r->textures, st);
+                    TextureID norm_tex = texture_get_normal_for_surface(&r->textures, st);
+                    if (tex != TEXTURE_INVALID) {
+                        glActiveTexture(GL_TEXTURE0);
+                        glBindTexture(GL_TEXTURE_2D, tex);
+                        glUniform1i(r->shader.u_has_texture, 1);
+                    } else {
+                        glActiveTexture(GL_TEXTURE0);
+                        glBindTexture(GL_TEXTURE_2D, 0);
+                        glUniform1i(r->shader.u_has_texture, 0);
+                    }
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, norm_tex != TEXTURE_INVALID ? norm_tex : 0);
+                    glUniform1i(r->shader.u_normal_map, 2);
+                    glActiveTexture(GL_TEXTURE1);
+                    glActiveTexture(GL_TEXTURE0);
+                    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
+                                   (void*)(size_t)(face * 6 * sizeof(uint32_t)));
+                }
+            }
+        }
+    } else if (draw_mesh->index_count == 36) {
+        if (r->shader.u_shadow_id >= 0)
+            glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
+        if (r->shader.u_shadow_face_ids >= 0)
+            glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
+        glUniform1i(r->shader.u_has_texture, 0);
+        trans_draw_elems(draw_mesh, only_face, 36);
+    } else {
+        if (r->shader.u_shadow_id >= 0)
+            glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
+        if (r->shader.u_shadow_face_ids >= 0)
+            glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
+        glUniform1i(r->shader.u_has_texture, 0);
+        trans_draw_elems(draw_mesh, -1, full_count);
+    }
+}
+
 void renderer_render_scene(Renderer* r, const Scene* scene, const Mat4* view, const Mat4* projection) {
     renderer_render_scene_ex(r, scene, view, projection, NULL, NULL);
 }
@@ -2423,9 +2654,13 @@ void renderer_render_scene_ex(Renderer* r, const Scene* scene, const Mat4* view,
     glUniform3f(r->shader.u_light_dir, r->light_dir.x, r->light_dir.y, r->light_dir.z);
     glUniform3f(r->shader.u_light_color, r->light_color.x, r->light_color.y, r->light_color.z);
 
+    Vec3 cam_pos = {0.0f, 0.0f, 0.0f};
     {
         Mat4 inv_view = mat4_inverse(*view);
-        glUniform3f(r->shader.u_camera_pos, inv_view.m[12], inv_view.m[13], inv_view.m[14]);
+        cam_pos.x = inv_view.m[12];
+        cam_pos.y = inv_view.m[13];
+        cam_pos.z = inv_view.m[14];
+        glUniform3f(r->shader.u_camera_pos, cam_pos.x, cam_pos.y, cam_pos.z);
     }
 
     glUniform3f(r->shader.u_fog_color, r->clear_r, r->clear_g, r->clear_b);
@@ -2753,9 +2988,12 @@ void renderer_render_scene_ex(Renderer* r, const Scene* scene, const Mat4* view,
 
     bool use_batches = brick_batch_active() && !r->shadows_enabled;
     bool building_batches = brick_batch_is_building();
+    static TransItem trans_items[PW_TRANS_FACE_MAX];
+    int n_trans = 0;
 
     for (int pass = 0; pass < 2; pass++) {
         if (pass == 1) {
+            n_trans = 0;
             renderer_apply_corner_ao(r, projection);
             if (mid) {
                 mid(mid_user);
@@ -2773,11 +3011,14 @@ void renderer_render_scene_ex(Renderer* r, const Scene* scene, const Mat4* view,
                     glUniform1i(r->shader.u_glow_light_count, glow_count);
                 if (r->shader.u_glow_shadow_count >= 0)
                     glUniform1i(r->shader.u_glow_shadow_count, r->glow_shadow_count);
+                glUniform3f(r->shader.u_camera_pos, cam_pos.x, cam_pos.y, cam_pos.z);
             }
             glEnable(GL_BLEND);
 
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDepthMask(GL_FALSE);
+            glEnable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(-1.0f, -1.0f);
 
             glEnable(GL_CULL_FACE);
 
@@ -2817,7 +3058,13 @@ void renderer_render_scene_ex(Renderer* r, const Scene* scene, const Mat4* view,
 
         Mat4 model = scene_get_world_matrix(scene, e->id);
         Vec3 pos = { model.m[12], model.m[13], model.m[14] };
-        float sx = e->transform.scale.x, sy = e->transform.scale.y, sz = e->transform.scale.z;
+
+        float sx = sqrtf(model.m[0] * model.m[0] + model.m[1] * model.m[1] + model.m[2] * model.m[2]);
+        float sy = sqrtf(model.m[4] * model.m[4] + model.m[5] * model.m[5] + model.m[6] * model.m[6]);
+        float sz = sqrtf(model.m[8] * model.m[8] + model.m[9] * model.m[9] + model.m[10] * model.m[10]);
+        if (sx < 0.001f) sx = e->transform.scale.x;
+        if (sy < 0.001f) sy = e->transform.scale.y;
+        if (sz < 0.001f) sz = e->transform.scale.z;
         if (sx < 0.0f) sx = -sx;
         if (sy < 0.0f) sy = -sy;
         if (sz < 0.0f) sz = -sz;
@@ -2844,196 +3091,88 @@ void renderer_render_scene_ex(Renderer* r, const Scene* scene, const Mat4* view,
             }
         }
         if (!visible) continue;
-        glUniformMatrix4fv(r->shader.u_model, 1, GL_FALSE, model.m);
-        glUniform3f(r->shader.u_color, e->material.color.x, e->material.color.y, e->material.color.z);
-
-        if (r->shader.u_part_size >= 0) {
-            float psx = fabsf(e->transform.scale.x);
-            float psy = fabsf(e->transform.scale.y);
-            float psz = fabsf(e->transform.scale.z);
-            if (psx < 1e-4f) psx = 1.0f;
-            if (psy < 1e-4f) psy = 1.0f;
-            if (psz < 1e-4f) psz = 1.0f;
-            glUniform3f(r->shader.u_part_size, psx, psy, psz);
-        }
-        if (r->shader.u_part_shape >= 0) {
-            GPUMesh* kindm = renderer_entity_tess_mesh(r, e);
-            int shape = (kindm && (kindm->prim_kind == 1 || kindm->prim_kind == 2))
-                ? (int)kindm->prim_kind : 0;
-            glUniform1i(r->shader.u_part_shape, shape);
-        }
-        renderer_bind_part_material(r, e->material.part_material);
-        if (r->shader.u_glow >= 0)
-            glUniform1f(r->shader.u_glow, e->material.glow);
-        if (r->shader.u_alpha >= 0)
-            glUniform1f(r->shader.u_alpha, alpha);
-        if (r->shader.u_contact_shade >= 0)
-            glUniform1f(r->shader.u_contact_shade, 0.0f);
 
         GPUMesh* draw_mesh = renderer_entity_tess_mesh(r, e);
         if (!draw_mesh) continue;
-        glBindVertexArray(draw_mesh->vao);
-
-        if (!draw_mesh->has_colors) {
-            glDisableVertexAttribArray(3);
-            glVertexAttrib3f(3, 1.0f, 1.0f, 1.0f);
-        }
-
-        const bool is_box = (draw_mesh->index_count == 36);
-
-        const int recv_face_ids = 1;
-
-        if (e->material.texture_id && draw_mesh->has_texcoords) {
-            if (r->shader.u_shadow_id >= 0)
-                glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
-            if (r->shader.u_shadow_face_ids >= 0)
-                glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, e->material.texture_id);
-            glUniform1i(r->shader.u_has_texture, e->material.texture_mode);
-            glDrawElements(GL_TRIANGLES, (GLsizei)draw_mesh->index_count, GL_UNSIGNED_INT, 0);
-        }
-
-        else if (draw_mesh->has_texcoords) {
-            static const int face_to_surface[] = { 2, 3, 0, 1, 5, 4 };
-            const GLsizei draw_count = (GLsizei)draw_mesh->index_count;
-
-            bool all_smooth = true;
-            if (e->material.part_material == PART_MATERIAL_PLASTIC) {
-                for (int s = 0; s < 6; s++) {
-                    if (e->material.surfaces[s] != SURFACE_SMOOTH) { all_smooth = false; break; }
-                }
-            }
-
-            bool use_face_mode = !all_smooth &&
-                                 r->shader.u_face_mode >= 0 && r->shader.u_face_surf >= 0;
-            if (use_face_mode) {
-                int face_surf[6];
-                for (int face = 0; face < 6; face++) {
-                    SurfaceType st = e->material.surfaces[face_to_surface[face]];
-                    face_surf[face] = (st == SURFACE_STUD) ? 1 : (st == SURFACE_INLET) ? 2 : 0;
-                }
-                if (r->shader.u_shadow_id >= 0)
-                    glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
-                if (r->shader.u_shadow_face_ids >= 0)
-                    glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
-                glUniform1i(r->shader.u_face_mode, 1);
-                glUniform1iv(r->shader.u_face_surf, 6, face_surf);
-                glUniform1i(r->shader.u_has_texture, 0);
-                TextureID stud = texture_get_for_surface(&r->textures, SURFACE_STUD);
-                TextureID inlet = texture_get_for_surface(&r->textures, SURFACE_INLET);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, stud != TEXTURE_INVALID ? stud : 0);
-                glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_2D, inlet != TEXTURE_INVALID ? inlet : 0);
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_2D, 0);
-                glActiveTexture(GL_TEXTURE0);
-                glDrawElements(GL_TRIANGLES, draw_count, GL_UNSIGNED_INT, 0);
-                glUniform1i(r->shader.u_face_mode, 0);
-            } else if (!is_box) {
-                if (r->shader.u_shadow_id >= 0)
-                    glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
-                if (r->shader.u_shadow_face_ids >= 0)
-                    glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
-                glUniform1i(r->shader.u_has_texture, 0);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, 0);
-                glDrawElements(GL_TRIANGLES, draw_count, GL_UNSIGNED_INT, 0);
-            } else if (!r->shadows_enabled) {
-                if (r->shader.u_shadow_id >= 0)
-                    glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
-                glUniform1i(r->shader.u_has_texture, 0);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, 0);
-                glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-            } else if (all_smooth) {
-                if (r->shader.u_shadow_id >= 0)
-                    glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
-                if (r->shader.u_shadow_face_ids >= 0)
-                    glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
-                glUniform1i(r->shader.u_has_texture, 0);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, 0);
-                glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-            } else {
-                bool all_same = true;
-                SurfaceType first_surf = e->material.surfaces[0];
-                for (int s = 1; s < 6; s++) {
-                    if (e->material.surfaces[s] != first_surf) { all_same = false; break; }
-                }
-                if (all_same) {
-                    if (r->shader.u_shadow_id >= 0)
-                        glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
-                    if (r->shader.u_shadow_face_ids >= 0)
-                        glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
-                    TextureID tex = texture_get_for_surface(&r->textures, first_surf);
-                    TextureID norm_tex = texture_get_normal_for_surface(&r->textures, first_surf);
-                    if (tex != TEXTURE_INVALID) {
-                        glActiveTexture(GL_TEXTURE0);
-                        glBindTexture(GL_TEXTURE_2D, tex);
-                        glUniform1i(r->shader.u_has_texture, 1);
-                    } else {
-                        glActiveTexture(GL_TEXTURE0);
-                        glBindTexture(GL_TEXTURE_2D, 0);
-                        glUniform1i(r->shader.u_has_texture, 0);
-                    }
-                    glActiveTexture(GL_TEXTURE2);
-                    glBindTexture(GL_TEXTURE_2D, norm_tex != TEXTURE_INVALID ? norm_tex : 0);
-                    glUniform1i(r->shader.u_normal_map, 2);
-                    glActiveTexture(GL_TEXTURE1);
-                    glActiveTexture(GL_TEXTURE0);
-                    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-                } else {
-
-                    for (int face = 0; face < 6; face++) {
-                        if (r->shader.u_shadow_id >= 0)
-                            glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
-                        if (r->shader.u_shadow_face_ids >= 0)
-                            glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
-
-                        int surf_idx = face_to_surface[face];
-                        SurfaceType st = e->material.surfaces[surf_idx];
-                        TextureID tex = texture_get_for_surface(&r->textures, st);
-                        TextureID norm_tex = texture_get_normal_for_surface(&r->textures, st);
-                        if (tex != TEXTURE_INVALID) {
-                            glActiveTexture(GL_TEXTURE0);
-                            glBindTexture(GL_TEXTURE_2D, tex);
-                            glUniform1i(r->shader.u_has_texture, 1);
-                        } else {
-                            glActiveTexture(GL_TEXTURE0);
-                            glBindTexture(GL_TEXTURE_2D, 0);
-                            glUniform1i(r->shader.u_has_texture, 0);
-                        }
-                        glActiveTexture(GL_TEXTURE2);
-                        glBindTexture(GL_TEXTURE_2D, norm_tex != TEXTURE_INVALID ? norm_tex : 0);
-                        glUniform1i(r->shader.u_normal_map, 2);
-                        glActiveTexture(GL_TEXTURE1);
-                        glActiveTexture(GL_TEXTURE0);
-                        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT,
-                                       (void*)(size_t)(face * 6 * sizeof(uint32_t)));
-                    }
-                }
-            }
-        } else if (draw_mesh->index_count == 36) {
-            if (r->shader.u_shadow_id >= 0)
-                glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
-            if (r->shader.u_shadow_face_ids >= 0)
-                glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
-            glUniform1i(r->shader.u_has_texture, 0);
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-        } else {
-
-            if (r->shader.u_shadow_id >= 0)
-                glUniform1ui(r->shader.u_shadow_id, renderer_shadow_id_entity(e->id));
-            if (r->shader.u_shadow_face_ids >= 0)
-                glUniform1i(r->shader.u_shadow_face_ids, recv_face_ids);
-            glUniform1i(r->shader.u_has_texture, 0);
-            glDrawElements(GL_TRIANGLES, (GLsizei)draw_mesh->index_count, GL_UNSIGNED_INT, 0);
-        }
-    }
 
         if (pass == 1) {
+            if (i > 65535u) continue;
+            if (draw_mesh->index_count == 36) {
+                static const float face_n[6][3] = {
+                    {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, -1.0f},
+                    {0.0f, 1.0f, 0.0f}, {0.0f, -1.0f, 0.0f},
+                    {1.0f, 0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f}
+                };
+                for (int f = 0; f < 6 && n_trans < PW_TRANS_FACE_MAX; f++) {
+                    float lx, ly, lz;
+                    trans_face_local(draw_mesh, f, &lx, &ly, &lz);
+                    Vec4 wp = mat4_mul_vec4(model, (Vec4){ lx, ly, lz, 1.0f });
+                    float dx = wp.x - cam_pos.x;
+                    float dy = wp.y - cam_pos.y;
+                    float dz = wp.z - cam_pos.z;
+                    float nx = model.m[0]*face_n[f][0] + model.m[4]*face_n[f][1] + model.m[8]*face_n[f][2];
+                    float ny = model.m[1]*face_n[f][0] + model.m[5]*face_n[f][1] + model.m[9]*face_n[f][2];
+                    float nz = model.m[2]*face_n[f][0] + model.m[6]*face_n[f][1] + model.m[10]*face_n[f][2];
+                    TransItem it;
+                    it.ei = (uint16_t)i;
+                    it.face = (int8_t)f;
+                    it.front = (nx * dx + ny * dy + nz * dz) < 0.0f ? 1 : 0;
+                    it.key = dx * dx + dy * dy + dz * dz;
+
+                    float thick = (f <= 1) ? sz : (f <= 3) ? sy : sx;
+                    if (!it.front && thick < 0.45f) continue;
+                    trans_items[n_trans++] = it;
+                }
+            } else if (n_trans < PW_TRANS_FACE_MAX) {
+                float dx = pos.x - cam_pos.x;
+                float dy = pos.y - cam_pos.y;
+                float dz = pos.z - cam_pos.z;
+                TransItem it;
+                it.ei = (uint16_t)i;
+                it.face = -1;
+                it.front = 1;
+                it.key = dx * dx + dy * dy + dz * dz;
+                trans_items[n_trans++] = it;
+            }
+            continue;
+        }
+
+        renderer_draw_scene_entity(r, e, &model, draw_mesh, alpha, -1);
+    }
+
+        if (pass == 1 && n_trans > 0) {
+            qsort(trans_items, (size_t)n_trans, sizeof(TransItem), trans_item_cmp);
+            uint32_t last_ei = 0xFFFFFFFFu;
+            const Entity* te = NULL;
+            Mat4 tmodel;
+            GPUMesh* tmesh = NULL;
+            float talpha = 1.0f;
+            for (int t = 0; t < n_trans; t++) {
+                const TransItem* it = &trans_items[t];
+                if ((uint32_t)it->ei != last_ei) {
+                    last_ei = it->ei;
+                    te = &scene->entities[it->ei];
+                    tmodel = scene_get_world_matrix(scene, te->id);
+                    tmesh = renderer_entity_tess_mesh(r, te);
+                    talpha = te->material.alpha;
+                }
+                if (!te || !tmesh) continue;
+                if (it->face >= 0) {
+                    glCullFace(it->front ? GL_BACK : GL_FRONT);
+                    renderer_draw_scene_entity(r, te, &tmodel, tmesh, talpha, it->face);
+                } else {
+                    glCullFace(GL_FRONT);
+                    renderer_draw_scene_entity(r, te, &tmodel, tmesh, talpha, -1);
+                    glCullFace(GL_BACK);
+                    renderer_draw_scene_entity(r, te, &tmodel, tmesh, talpha, -1);
+                }
+            }
+            glCullFace(GL_BACK);
+        }
+
+        if (pass == 1) {
+            glDisable(GL_POLYGON_OFFSET_FILL);
+            glPolygonOffset(0.0f, 0.0f);
             glDepthMask(GL_TRUE);
             glDisable(GL_BLEND);
             if (r->fog_world_pass && r->scene_fog_depth_tex) {
@@ -3577,6 +3716,7 @@ void renderer_draw_mesh_alpha(Renderer* r, const GPUMesh* mesh, const Mat4* mode
             glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         else
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
         if (faded)
             glDepthMask(GL_FALSE);
 
@@ -3658,8 +3798,9 @@ void renderer_draw_mesh_alpha(Renderer* r, const GPUMesh* mesh, const Mat4* mode
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindVertexArray(0);
 
-    if ((faded || texel_alpha) && !r->mesh_fx_hold) {
-        glDepthMask(GL_TRUE);
+    if (used_blend && !r->mesh_fx_hold) {
+        if (faded)
+            glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
         if (fog_mrt) {
 #if !PW_USE_GLES

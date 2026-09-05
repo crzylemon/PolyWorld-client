@@ -722,7 +722,9 @@ static GPUMesh* net_unit_mesh_for_type(uint8_t obj_type) {
 static struct {
     int id;
     GPUMesh mesh;
+    unsigned int tex;
     bool ready, failed, loading;
+    bool tex_ready, tex_failed, tex_loading;
 } g_cat_mesh[PW_CATALOG_MESH_CACHE];
 static int g_cat_mesh_n;
 
@@ -754,6 +756,8 @@ static uint32_t g_pend_dec_parent[PW_MAX_PENDING_DECAL];
 static uint32_t g_pend_dec_tex[PW_MAX_PENDING_DECAL];
 static uint8_t g_pend_dec_mode[PW_MAX_PENDING_DECAL];
 static uint8_t g_pend_dec_face[PW_MAX_PENDING_DECAL];
+static float g_pend_dec_tx[PW_MAX_PENDING_DECAL];
+static float g_pend_dec_ty[PW_MAX_PENDING_DECAL];
 static int g_pend_dec_n;
 
 static void catalog_mesh_fit_unit(MeshData* md) {
@@ -792,8 +796,8 @@ static GPUMesh* client_decal_quad(void) {
 }
 
 static GPUMesh* client_decal_quad_uv(float u, float v) {
-    if (u < 1.0f) u = 1.0f;
-    if (v < 1.0f) v = 1.0f;
+    if (u < 0.05f) u = 0.05f;
+    if (v < 0.05f) v = 0.05f;
     if (fabsf(u - 1.0f) < 0.05f && fabsf(v - 1.0f) < 0.05f)
         return client_decal_quad();
     for (int i = 0; i < 16; i++) {
@@ -832,6 +836,12 @@ static void apply_catalog_mesh_to_net(uint32_t oid, uint32_t mesh_id, GPUMesh* m
             ent->mesh = mesh;
             ent->static_batch = false;
             ent->render_batched = false;
+            for (int i = 0; i < g_cat_mesh_n; i++) {
+                if (g_cat_mesh[i].id == (int)mesh_id && g_cat_mesh[i].tex_ready && g_cat_mesh[i].tex) {
+                    ent->material.texture_id = g_cat_mesh[i].tex;
+                    break;
+                }
+            }
         }
         if (g_game.net_objects[ni].mesh_collider >= MESH_COLLIDER_LOW)
             net_brick_rebuild_collision(ni);
@@ -843,8 +853,8 @@ static int catalog_mesh_url(char* url, size_t n, int id, int stage) {
     const char* host = g_game.host[0] ? g_game.host : "https://polyworld.games";
     const char* fmt = NULL;
 
-    if (stage == 0) fmt = "%s/uploads/accessories/%d.obj";
-    else if (stage == 1) fmt = "%s/uploads/meshes/%d.obj";
+    if (stage == 0) fmt = "%s/uploads/meshes/%d.obj";
+    else if (stage == 1) fmt = "%s/uploads/accessories/%d.obj";
     else return 0;
     if (url && n) snprintf(url, n, fmt, host, id);
     return 1;
@@ -861,6 +871,54 @@ static bool catalog_looks_like_obj(const uint8_t* data, size_t len) {
 }
 
 static void catalog_mesh_request(int id, int stage);
+static void catalog_mesh_tex_request(int id);
+
+static void on_catalog_mesh_tex_loaded(const char* path, const uint8_t* data, size_t len, void* user) {
+    int id = (int)(intptr_t)user;
+    int slot = -1;
+    for (int i = 0; i < g_cat_mesh_n; i++) {
+        if (g_cat_mesh[i].id == id) { slot = i; break; }
+    }
+    if (slot < 0) return;
+    g_cat_mesh[slot].tex_loading = false;
+    (void)path;
+    if (!data || len < 8 || (unsigned char)data[0] != 0x89 || data[1] != 'P') {
+        g_cat_mesh[slot].tex_failed = true;
+        return;
+    }
+    extern unsigned char* stbi_load_from_memory(const unsigned char*, int, int*, int*, int*, int);
+    extern void stbi_image_free(void*);
+    int w = 0, h = 0, c = 0;
+    unsigned char* px = stbi_load_from_memory(data, (int)len, &w, &h, &c, 4);
+    if (!px) { g_cat_mesh[slot].tex_failed = true; return; }
+    g_cat_mesh[slot].tex = texture_load_from_memory(px, w, h, 4);
+    stbi_image_free(px);
+    if (!g_cat_mesh[slot].tex) { g_cat_mesh[slot].tex_failed = true; return; }
+    texture_set_overlay_sampling(g_cat_mesh[slot].tex);
+    g_cat_mesh[slot].tex_ready = true;
+    if (g_cat_mesh[slot].ready) {
+        for (int ni = 0; ni < g_game.net_object_count; ni++) {
+            if (g_game.net_objects[ni].mesh_id == (uint32_t)id)
+                apply_catalog_mesh_to_net(g_game.net_objects[ni].net_id, (uint32_t)id,
+                                         &g_cat_mesh[slot].mesh);
+        }
+    }
+}
+
+static void catalog_mesh_tex_request(int id) {
+    int slot = -1;
+    for (int i = 0; i < g_cat_mesh_n; i++) {
+        if (g_cat_mesh[i].id == id) { slot = i; break; }
+    }
+    if (slot < 0) return;
+    if (g_cat_mesh[slot].tex_loading || g_cat_mesh[slot].tex_ready || g_cat_mesh[slot].tex_failed)
+        return;
+    g_cat_mesh[slot].tex_loading = true;
+    const char* host = g_game.host[0] ? g_game.host : "https://polyworld.games";
+    char url[256];
+    snprintf(url, sizeof(url), "%s/uploads/meshes/%d.png", host, id);
+    platform_load_file(url, on_catalog_mesh_tex_loaded, (void*)(intptr_t)id);
+}
 
 static void on_catalog_mesh_loaded(const char* path, const uint8_t* data, size_t len, void* user) {
     intptr_t packed = (intptr_t)user;
@@ -881,6 +939,7 @@ static void on_catalog_mesh_loaded(const char* path, const uint8_t* data, size_t
         if (mesh_upload(&md, &g_cat_mesh[slot].mesh)) {
             mesh_data_free(&md);
             g_cat_mesh[slot].ready = true;
+            catalog_mesh_tex_request(id);
             for (int ni = 0; ni < g_game.net_object_count; ni++) {
                 if (g_game.net_objects[ni].mesh_id == (uint32_t)id)
                     apply_catalog_mesh_to_net(g_game.net_objects[ni].net_id, (uint32_t)id,
@@ -1070,6 +1129,7 @@ static void on_catalog_decal_loaded(const char* path, const uint8_t* data, size_
     if (!px) { g_cat_tex[slot].failed = true; return; }
     g_cat_tex[slot].tex = texture_load_from_memory(px, w, h, 4);
     stbi_image_free(px);
+    texture_set_overlay_sampling(g_cat_tex[slot].tex);
     g_cat_tex[slot].ready = g_cat_tex[slot].tex != 0;
     if (g_cat_tex[slot].ready)
         apply_decal_tex_to_waiting(id, g_cat_tex[slot].tex);
@@ -1094,7 +1154,8 @@ static unsigned int catalog_decal_tex(int id) {
     return 0;
 }
 
-static void spawn_net_decal(uint32_t parent_id, uint32_t tex_id, uint8_t mode, uint8_t face) {
+static void spawn_net_decal(uint32_t parent_id, uint32_t tex_id, uint8_t mode, uint8_t face,
+                            float tile_x, float tile_y) {
     int pni = -1;
     for (int i = 0; i < g_game.net_object_count; i++) {
         if (g_game.net_objects[i].net_id == parent_id) { pni = i; break; }
@@ -1106,6 +1167,8 @@ static void spawn_net_decal(uint32_t parent_id, uint32_t tex_id, uint8_t mode, u
         g_pend_dec_tex[n] = tex_id;
         g_pend_dec_mode[n] = mode;
         g_pend_dec_face[n] = face;
+        g_pend_dec_tx[n] = tile_x;
+        g_pend_dec_ty[n] = tile_y;
         catalog_decal_tex((int)tex_id);
         return;
     }
@@ -1131,7 +1194,11 @@ static void spawn_net_decal(uint32_t parent_id, uint32_t tex_id, uint8_t mode, u
         case 3: lp = (Vec3){0, -0.5f - epsy, 0}; lr = (Vec3){90, 0, 0}; fu = sx; fv = sz; break;
         default: break;
     }
-    GPUMesh* q = (mode == 1) ? client_decal_quad_uv(fu, fv) : client_decal_quad();
+    if (tile_x < 0.05f) tile_x = 1.0f;
+    if (tile_y < 0.05f) tile_y = 1.0f;
+    if (tile_x > 64.0f) tile_x = 64.0f;
+    if (tile_y > 64.0f) tile_y = 64.0f;
+    GPUMesh* q = (mode == 1) ? client_decal_quad_uv(fu * tile_x, fv * tile_y) : client_decal_quad();
     ent->mesh = q;
     ent->transform.position = lp;
     ent->transform.rotation = lr;
@@ -1159,13 +1226,17 @@ static void flush_pending_decals_for(uint32_t parent_id) {
         uint32_t tex = g_pend_dec_tex[i];
         uint8_t mode = g_pend_dec_mode[i];
         uint8_t face = g_pend_dec_face[i];
+        float tx = g_pend_dec_tx[i];
+        float ty = g_pend_dec_ty[i];
         int last = g_pend_dec_n - 1;
         g_pend_dec_parent[i] = g_pend_dec_parent[last];
         g_pend_dec_tex[i] = g_pend_dec_tex[last];
         g_pend_dec_mode[i] = g_pend_dec_mode[last];
         g_pend_dec_face[i] = g_pend_dec_face[last];
+        g_pend_dec_tx[i] = g_pend_dec_tx[last];
+        g_pend_dec_ty[i] = g_pend_dec_ty[last];
         g_pend_dec_n--;
-        spawn_net_decal(parent_id, tex, mode, face);
+        spawn_net_decal(parent_id, tex, mode, face, tx, ty);
     }
 }
 
@@ -1651,7 +1722,7 @@ static bool game_init(void) {
 #else
     g_game.ui_scale = 1.0f;
 #endif
-    g_game.host = "https://polyworld.games";
+    g_game.host = pw_site_origin();
     emote_clip_set_host(g_game.host);
     g_game.reset_enabled = true;
     g_game.allow_freecam = true;
@@ -2781,12 +2852,44 @@ typedef struct {
     double dt;
 } WorldMidDrawCtx;
 
+static void avatar_sort_parts_far_first(int* order, int n, AvatarAnim* anim,
+                                        Vec3 pos, float yaw, float scale, const Mat4* view) {
+    if (n < 2 || !anim || !view) return;
+    Mat4 inv = mat4_inverse(*view);
+    Vec3 cam = { inv.m[12], inv.m[13], inv.m[14] };
+    float dist[AVATAR_PART_COUNT];
+    for (int i = 0; i < n; i++) {
+        Mat4 m = avatar_anim_get_part_matrix(anim, order[i], pos, yaw, scale);
+        float dx = m.m[12] - cam.x;
+        float dy = m.m[13] - cam.y;
+        float dz = m.m[14] - cam.z;
+        dist[i] = dx * dx + dy * dy + dz * dz;
+    }
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {
+            if (dist[j] > dist[i]) {
+                int t = order[i];
+                order[i] = order[j];
+                order[j] = t;
+                float td = dist[i];
+                dist[i] = dist[j];
+                dist[j] = td;
+            }
+        }
+    }
+}
+
 static void draw_world_avatars_and_rockets(void* user) {
     WorldMidDrawCtx* ctx = (WorldMidDrawCtx*)user;
     bool first_person = ctx->first_person;
     const Mat4* view = ctx->view;
     const Mat4* projection = ctx->projection;
     double dt = ctx->dt;
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+    glDisable(GL_BLEND);
 
     if (g_game.avatar_anim.parts[0].valid) {
         if (g_game.ragdoll.active) {
@@ -2827,20 +2930,35 @@ static void draw_world_avatars_and_rockets(void* user) {
                 };
                 Vec3 color = g_game.skin_color;
 
+                int order[AVATAR_PART_COUNT];
+                int nparts = 0;
                 for (int p = 0; p < AVATAR_PART_COUNT; p++) {
                     if (!g_game.avatar_anim.parts[p].valid) continue;
 #ifdef VR
                     if (vr_fp && (p == ANIM_PART_HEAD || p == ANIM_PART_TORSO))
                         continue;
 #endif
+                    order[nparts++] = p;
+                }
+                if (body_a < 0.999f)
+                    avatar_sort_parts_far_first(order, nparts, &g_game.avatar_anim,
+                                                pos, yaw, AVATAR_SCALE, view);
+
+                for (int i = 0; i < nparts; i++) {
+                    int p = order[i];
                     Mat4 part_mat = avatar_anim_get_part_matrix(&g_game.avatar_anim, p, pos, yaw, AVATAR_SCALE);
                     uint32_t tex = g_game.local_tex_shirt;
                     if (p == ANIM_PART_HEAD) tex = g_game.local_tex_head;
                     else if (p == ANIM_PART_RIGHT_LEG || p == ANIM_PART_LEFT_LEG) tex = g_game.local_tex_pants;
                     int tex_mode = tex ? 3 : 0;
                     renderer_set_shadow_id(&g_game.renderer, renderer_shadow_id_avatar(0, p));
-                    renderer_draw_mesh_alpha(&g_game.renderer, &g_game.avatar_anim.parts[p].mesh,
-                                             &part_mat, color, tex, tex_mode, view, projection, body_a);
+                    if (body_a >= 0.999f) {
+                        renderer_draw_mesh(&g_game.renderer, &g_game.avatar_anim.parts[p].mesh,
+                                           &part_mat, color, tex, tex_mode, view, projection);
+                    } else {
+                        renderer_draw_mesh_alpha(&g_game.renderer, &g_game.avatar_anim.parts[p].mesh,
+                                                 &part_mat, color, tex, tex_mode, view, projection, body_a);
+                    }
                 }
 #ifdef VR
                 if (!vr_fp)
@@ -3730,6 +3848,21 @@ static void interpolate_net_objects(float dt) {
     }
 }
 
+static void remote_player_snap_pose(int rp, Entity* ent, Vec3 feet, float yaw) {
+    if (ent) {
+        ent->transform.position = feet;
+        ent->transform.rotation.y = yaw;
+    }
+    g_game.remote_players[rp].lerp_start_pos = feet;
+    g_game.remote_players[rp].target_pos = feet;
+    g_game.remote_players[rp].lerp_start_yaw = yaw;
+    g_game.remote_players[rp].target_yaw = yaw;
+    g_game.remote_players[rp].lerp_t = 1.0f;
+    g_game.remote_players[rp].has_target = true;
+    g_game.remote_players[rp].last_vel = (Vec3){0, 0, 0};
+    g_game.remote_players[rp].last_update_time = platform_get_time();
+}
+
 static void interpolate_remote_players(float dt) {
     if (!g_game.multiplayer) return;
     for (int rp = 0; rp < MAX_REMOTE_PLAYERS; rp++) {
@@ -3750,6 +3883,10 @@ static void interpolate_remote_players(float dt) {
         float t = g_game.remote_players[rp].lerp_t;
         Vec3 s = g_game.remote_players[rp].lerp_start_pos;
         Vec3 e = g_game.remote_players[rp].target_pos;
+        float span2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y)
+                    + (e.z - s.z) * (e.z - s.z);
+
+        if (span2 > 64.0f && t > 1.0f) t = 1.0f;
         Vec3 new_pos = {
             s.x + (e.x - s.x) * t,
             s.y + (e.y - s.y) * t,
@@ -4395,7 +4532,7 @@ static void consume_login_play(LoginScreen* ls) {
 
             platform_load_file(place_path, on_world_loaded, NULL);
         }
-    } else if (net_client_connect(&g_game.net, "tcp.polyworld.games", 7777)) {
+    } else if (net_client_connect(&g_game.net, pw_tcp_host(), pw_tcp_port())) {
         clear_game_world();
         {
             char details[128];
@@ -4966,6 +5103,16 @@ static bool join_multiplayer_game(int game_id, int server_id, const char* host, 
     JoinTicket jt = auth_get_join_ticket(
         is_guest ? NULL : g_game.session_token, game_id, is_guest, server_id, shadowed);
     if (!jt.valid) {
+#ifdef __ANDROID__
+        if (pw_error_is_client_outdated(jt.error)) {
+            login_screen_require_update(&g_game.login_screen);
+            g_game.show_login = true;
+            g_game.show_disconnect = false;
+            g_game.loading_world = false;
+            g_game.multiplayer = false;
+            return false;
+        }
+#endif
         begin_disconnect(jt.error[0] ? jt.error : "Could not get a join ticket.");
         return false;
     }
@@ -6342,6 +6489,28 @@ static void net_apply_part_alive(uint32_t oid, uint8_t otype, uint8_t anchored, 
     net_apply_replicated_pose(target, ni, tgt, nr, !force_correct && !apply_vel, !apply_vel);
 }
 
+static void netown_emit_walk_hit(uint32_t oid, float dx, float dz) {
+    if (g_game.net_proto < PW_PROTO_NETOWN || !g_game.world_ready) return;
+    if (g_game.net.state != NET_STATE_CONNECTED) return;
+
+    static uint32_t s_last_oid = 0;
+    static double s_last_t = 0.0;
+    double now = platform_get_time();
+    if (oid == 0) {
+        if (s_last_oid == 0) return;
+    } else if (oid == s_last_oid && now - s_last_t < 0.10) {
+        return;
+    }
+    s_last_oid = oid;
+    s_last_t = now;
+
+    uint8_t buf[12];
+    memcpy(buf, &oid, 4);
+    memcpy(buf + 4, &dx, 4);
+    memcpy(buf + 8, &dz, 4);
+    net_client_send(&g_game.net, MSG_WALK_HIT, buf, 12);
+}
+
 static void netown_local_push(void) {
     if (client_netown_lite()) return;
     if (g_game.net_proto < PW_PROTO_NETOWN || !g_game.world_ready) return;
@@ -6357,17 +6526,29 @@ static void netown_local_push(void) {
     if (walk_spd < 1.0f) walk_spd = 16.0f;
 
     int ni_hit = -1;
+    bool owned = false;
     for (int ni = 0; ni < g_game.net_object_count; ni++) {
-        if (!g_game.net_objects[ni].net_owned) continue;
+        if (g_game.net_objects[ni].anchored || g_game.net_objects[ni].never_netown)
+            continue;
         Entity* e = scene_get_entity(&g_game.scene, g_game.net_objects[ni].entity);
         if (!e || !e->physics_body) continue;
         if (e->physics_body != hit &&
             !physics_same_rigid_body(g_game.physics, e->physics_body, hit))
             continue;
-        ni_hit = ni;
-        break;
+        if (g_game.net_objects[ni].net_owned) {
+            ni_hit = ni;
+            owned = true;
+            break;
+        }
+        if (ni_hit < 0)
+            ni_hit = ni;
     }
     if (ni_hit < 0) return;
+    if (!owned) {
+
+        netown_emit_walk_hit(g_game.net_objects[ni_hit].net_id, wdx, wdz);
+        return;
+    }
 
     Entity* e = scene_get_entity(&g_game.scene, g_game.net_objects[ni_hit].entity);
     if (!e || !e->physics_body) return;
@@ -6449,22 +6630,7 @@ static void netown_send_walk_hit(void) {
         }
     }
 
-    static uint32_t s_last_oid = 0;
-    static double s_last_t = 0.0;
-    double now = platform_get_time();
-    if (oid == 0) {
-        if (s_last_oid == 0) return;
-    } else if (oid == s_last_oid && now - s_last_t < 0.10) {
-        return;
-    }
-    s_last_oid = oid;
-    s_last_t = now;
-
-    uint8_t buf[12];
-    memcpy(buf, &oid, 4);
-    memcpy(buf + 4, &dx, 4);
-    memcpy(buf + 8, &dz, 4);
-    net_client_send(&g_game.net, MSG_WALK_HIT, buf, 12);
+    netown_emit_walk_hit(oid, dx, dz);
 }
 
 static int net_brick_lod_dist(int ni, Entity* ent, Vec3 focus) {
@@ -7067,6 +7233,7 @@ static void game_frame(double dt) {
 #else
         if (
 #endif
+            !ls->update_required &&
             (game_menu_first_run_active(&g_game.menu) ||
             (ls->logged_in && ls->phase >= 1 && game_menu_needs_first_run(&g_game.menu)))) {
             if (!game_menu_first_run_active(&g_game.menu))
@@ -7105,6 +7272,7 @@ static void game_frame(double dt) {
         }
 
         if (g_game.show_login && ls->logged_in && ls->phase >= 1 &&
+            !ls->update_required &&
 #ifdef VR
             !g_game.vr.active &&
 #endif
@@ -9145,36 +9313,19 @@ polyworld_load_pump:
                                     }
                                 } else if (g_game.remote_players[rp].dead) {
 
-                                    float dx = 0, dy = 0, dz = 0;
-                                    if (ent) {
-                                        dx = new_feet.x - ent->transform.position.x;
-                                        dy = new_feet.y - ent->transform.position.y;
-                                        dz = new_feet.z - ent->transform.position.z;
-                                    }
-                                    float dist2 = dx*dx + dy*dy + dz*dz;
-                                    if (dist2 > 9.0f) {
-                                        g_game.remote_players[rp].dead = false;
-                                        ragdoll_destroy((RagdollState*)&g_game.remote_players[rp].ragdoll);
-                                        if (ent) {
-                                            ent->transform.position = new_feet;
-                                            ent->transform.rotation.y = mesh_yaw;
-                                        }
-                                        g_game.remote_players[rp].target_pos = new_feet;
-                                        g_game.remote_players[rp].target_yaw = mesh_yaw;
-                                        g_game.remote_players[rp].lerp_t = 1.0f;
-                                        g_game.remote_players[rp].has_target = true;
-                                        g_game.remote_players[rp].last_update_time = platform_get_time();
-                                        g_game.remote_players[rp].anim.state = (AnimState)remote_anim;
-                                        if (remote_anim == ANIM_STATE_EMOTE && remote_emote_id) {
-                                            if (g_game.remote_players[rp].anim.emote_id != remote_emote_id)
-                                                g_game.remote_players[rp].anim.emote_time = 0.0f;
-                                            g_game.remote_players[rp].anim.emote_id = remote_emote_id;
-                                            emote_clip_request(remote_emote_id);
-                                            g_game.remote_players[rp].anim.emote_clip = emote_clip_get(remote_emote_id);
-                                        } else {
-                                            g_game.remote_players[rp].anim.emote_id = 0;
-                                            g_game.remote_players[rp].anim.emote_clip = NULL;
-                                        }
+                                    g_game.remote_players[rp].dead = false;
+                                    ragdoll_destroy((RagdollState*)&g_game.remote_players[rp].ragdoll);
+                                    remote_player_snap_pose(rp, ent, new_feet, mesh_yaw);
+                                    g_game.remote_players[rp].anim.state = (AnimState)remote_anim;
+                                    if (remote_anim == ANIM_STATE_EMOTE && remote_emote_id) {
+                                        if (g_game.remote_players[rp].anim.emote_id != remote_emote_id)
+                                            g_game.remote_players[rp].anim.emote_time = 0.0f;
+                                        g_game.remote_players[rp].anim.emote_id = remote_emote_id;
+                                        emote_clip_request(remote_emote_id);
+                                        g_game.remote_players[rp].anim.emote_clip = emote_clip_get(remote_emote_id);
+                                    } else {
+                                        g_game.remote_players[rp].anim.emote_id = 0;
+                                        g_game.remote_players[rp].anim.emote_clip = NULL;
                                     }
                                 } else if (ent) {
                                     Vec3 cur = ent->transform.position;
@@ -9196,11 +9347,7 @@ polyworld_load_pump:
                                     bool burst = !snap && gap < 0.018f &&
                                                  g_game.remote_players[rp].lerp_t < 0.99f;
                                     if (snap) {
-                                        ent->transform.position = new_feet;
-                                        ent->transform.rotation.y = mesh_yaw;
-                                        g_game.remote_players[rp].lerp_t = 1.0f;
-                                        g_game.remote_players[rp].lerp_start_yaw = mesh_yaw;
-                                        g_game.remote_players[rp].target_yaw = mesh_yaw;
+                                        remote_player_snap_pose(rp, ent, new_feet, mesh_yaw);
                                     } else {
                                         float vis = wrap_deg360(ent->transform.rotation.y);
                                         g_game.remote_players[rp].lerp_start_pos = cur;
@@ -9697,10 +9844,34 @@ polyworld_load_pump:
                         memcpy(&cz, msg_buf+8, 4);
                         g_game.avatar.pos = (Vec3){cx, cy, cz};
                         g_game.avatar.vel = (Vec3){0, 0, 0};
-                        if (g_game.avatar.body)
+                        g_game.avatar.death_vel = (Vec3){0, 0, 0};
+                        g_game.avatar.step_offset = 0.0f;
+                        g_game.avatar.on_ground = false;
+                        ragdoll_destroy((RagdollState*)&g_game.ragdoll);
+                        if (g_game.avatar.body) {
                             physics_set_position(g_game.physics, g_game.avatar.body, g_game.avatar.pos);
-
+                            physics_set_velocity(g_game.physics, g_game.avatar.body, (Vec3){0, 0, 0});
+                            physics_enable_geom(g_game.physics, g_game.avatar.body);
+                        }
+                        Entity* unstuck_ent = scene_get_entity(&g_game.scene, g_game.avatar.entity);
+                        if (unstuck_ent) {
+                            unstuck_ent->transform.position = (Vec3){
+                                cx, cy - AVATAR_ROOT_HALF_Y, cz
+                            };
+                        }
+                        g_game.camera.target = (Vec3){
+                            cx, cy + (AVATAR_CAMERA_ORBIT_Y - AVATAR_ROOT_HALF_Y), cz
+                        };
                         g_game.move_lock_timer = 0.5f;
+                        g_game.collision_pin_pos = g_game.avatar.pos;
+                        g_game.collision_chunk_loading = true;
+                        g_game.avatar.freeze_locomotion = true;
+                        g_game.collision_load_attempts = 0;
+                        g_game.collision_load_attempt_time = 0.0;
+                        g_game.collision_spawn_gate = true;
+                        collision_lod_force_resync();
+                        collision_lod_activate_near_focus();
+                        collision_lod_ensure_underfoot();
                     }
                     break;
                 }
@@ -10230,6 +10401,8 @@ polyworld_load_pump:
                     if (msg_len < 4) break;
                     uint32_t n = 0;
                     memcpy(&n, msg_buf, 4);
+                    size_t rec = 4 + (size_t)n * 10;
+                    int have_tile = (msg_len >= rec + (size_t)n * 8);
                     size_t offd = 4;
                     for (uint32_t i = 0; i < n && offd + 10 <= msg_len; i++) {
                         uint32_t parent = 0, tex = 0;
@@ -10238,7 +10411,12 @@ polyworld_load_pump:
                         uint8_t mode = msg_buf[offd + 8];
                         uint8_t face = msg_buf[offd + 9];
                         offd += 10;
-                        spawn_net_decal(parent, tex, mode, face);
+                        float tx = 1.0f, ty = 1.0f;
+                        if (have_tile) {
+                            memcpy(&tx, msg_buf + rec + (size_t)i * 8, 4);
+                            memcpy(&ty, msg_buf + rec + (size_t)i * 8 + 4, 4);
+                        }
+                        spawn_net_decal(parent, tex, mode, face, tx, ty);
                     }
                     break;
                 }
@@ -10527,11 +10705,14 @@ polyworld_load_pump:
                 typedef struct { uint32_t pid; const char* name; uint8_t badges; bool has_nc; float nr, ng, nb; } Roster;
                 Roster roster[CHAT_PL_MAX];
                 int roster_n = 0;
-                roster[roster_n++] = (Roster){ 0, g_game.username, g_game.local_badges,
+                roster[roster_n++] = (Roster){ g_game.local_player_id, g_game.username, g_game.local_badges,
                     g_game.local_has_name_color, g_game.local_name_color_r,
                     g_game.local_name_color_g, g_game.local_name_color_b };
                 for (int rp = 0; rp < MAX_REMOTE_PLAYERS && roster_n < CHAT_PL_MAX; rp++) {
                     if (!g_game.remote_players[rp].active) continue;
+                    if (g_game.local_player_id != 0 &&
+                        g_game.remote_players[rp].id == g_game.local_player_id)
+                        continue;
                     roster[roster_n++] = (Roster){
                         g_game.remote_players[rp].id,
                         g_game.remote_players[rp].name,
@@ -10546,12 +10727,17 @@ polyworld_load_pump:
                 uint32_t remote_pids[CHAT_PL_MAX];
                 int remote_pid_n = 0;
                 for (int r = 0; r < roster_n; r++) {
-                    if (roster[r].pid != 0 && remote_pid_n < CHAT_PL_MAX)
+                    if (roster[r].pid == 0) continue;
+                    if (g_game.local_player_id != 0 && roster[r].pid == g_game.local_player_id)
+                        continue;
+                    if (remote_pid_n < CHAT_PL_MAX)
                         remote_pids[remote_pid_n++] = roster[r].pid;
                 }
 
                 int used[CHAT_PL_MAX];
+                int placed[CHAT_PL_MAX];
                 memset(used, 0, sizeof(used));
+                memset(placed, 0, sizeof(placed));
 
                 if (g_game.scoreboard.team_count > 0) {
                     for (int ti = 0; ti < g_game.scoreboard.team_count && row_count < CHAT_PL_MAX; ti++) {
@@ -10568,6 +10754,7 @@ polyworld_load_pump:
                             int8_t tidx = (sbi >= 0) ? g_game.scoreboard.entries[sbi].team_idx : (int8_t)-1;
                             if (tidx != (int8_t)ti) continue;
                             if (sbi >= 0) used[sbi] = 1;
+                            placed[r] = 1;
                             rows[row_count].name = roster[r].name;
                             rows[row_count].badges = roster[r].badges;
                             rows[row_count].player_id = roster[r].pid;
@@ -10588,6 +10775,7 @@ polyworld_load_pump:
 
                     int no_team_hdr = -1;
                     for (int r = 0; r < roster_n && row_count < CHAT_PL_MAX; r++) {
+                        if (placed[r]) continue;
                         int sbi = scoreboard_find_entry(roster[r].pid, remote_pids, remote_pid_n, used);
                         int8_t tidx = (sbi >= 0) ? g_game.scoreboard.entries[sbi].team_idx : (int8_t)-1;
                         if (tidx >= 0 && tidx < g_game.scoreboard.team_count) continue;
@@ -11015,7 +11203,7 @@ polyworld_load_pump:
             g_game.loading_world = true;
             g_game.show_login = false;
             paint_loading_now("Joining");
-            if (net_client_connect(&g_game.net, "tcp.polyworld.games", 7777)) {
+            if (net_client_connect(&g_game.net, pw_tcp_host(), pw_tcp_port())) {
                 clear_game_world();
                 g_game.multiplayer = true;
                 g_game.auth_sent = true;
@@ -12743,18 +12931,25 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
-    g_game.host = "https://polyworld.games";
+    g_game.host = pw_site_origin();
     emote_clip_set_host(g_game.host);
     bool custom_host_provided = false;
+    bool local_mode = false;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--host") == 0) {
             if (i + 1 < argc) {
-                g_game.host = argv[i + 1];
+                pw_set_site_origin(argv[i + 1]);
+                g_game.host = pw_site_origin();
                 emote_clip_set_host(g_game.host);
                 custom_host_provided = true;
                 i++;
             }
+        } else if (strcmp(argv[i], "--local") == 0) {
+            pw_use_local_site();
+            g_game.host = pw_site_origin();
+            emote_clip_set_host(g_game.host);
+            local_mode = true;
         }
     }
     updater_check();
@@ -12780,7 +12975,7 @@ int main(int argc, char* argv[]) {
     if (launch_into_game) {
         g_game.show_login = false;
         g_game.loading_world = true;
-    } else if (!custom_host_provided) {
+    } else if (!custom_host_provided || local_mode) {
         g_game.show_login = true;
     }
 

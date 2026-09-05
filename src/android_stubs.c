@@ -25,6 +25,7 @@ int discord_get_pending_join(void) { return 0; }
 #ifndef PW_MOBILE_STORE
 void updater_check(void) {}
 void updater_set_force(bool force) { (void)force; }
+void updater_set_studio_channel(bool studio) { (void)studio; }
 const char* updater_get_version(void) { return "android"; }
 bool updater_server_unreachable(void) { return false; }
 #endif

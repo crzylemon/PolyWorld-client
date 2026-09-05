@@ -37,6 +37,8 @@ TextureID texture_get_mat_specular(const TextureManager* tm, int material_id);
 
 TextureID texture_load_from_memory(const uint8_t* data, int width, int height, int channels);
 
+void texture_set_overlay_sampling(TextureID tex);
+
 TextureID texture_load_atlas_from_memory(const uint8_t* data, int width, int height, int channels);
 TextureID texture_load_png(const char* path);
 
