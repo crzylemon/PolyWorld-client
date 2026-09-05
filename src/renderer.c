@@ -531,19 +531,15 @@ bool renderer_init(Renderer* r, int canvas_width, int canvas_height, bool studio
     emscripten_webgl_enable_extension(ctx, "EXT_color_buffer_float");
     emscripten_webgl_enable_extension(ctx, "OES_texture_float_linear");
 #elif !PW_USE_GLES
-
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if (err != GLEW_OK) {
-
-        if (glCreateShader == NULL || glCreateProgram == NULL) {
+        if (glCreateShader == NULL || glCreateProgram == NULL)
             return false;
-        }
-
-        PW_ERR(ERR_GENERIC, "glew is a fricking idiot bro like wdym \"%s\" just let me use opengl\n", glewGetErrorString(err));
+        while (glGetError() != GL_NO_ERROR) {}
+    } else {
+        while (glGetError() != GL_NO_ERROR) {}
     }
-
-    while (glGetError() != GL_NO_ERROR) {}
     glEnable(GL_MULTISAMPLE);
 #endif
 

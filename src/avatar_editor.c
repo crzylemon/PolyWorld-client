@@ -1258,7 +1258,9 @@ bool avatar_editor_on_mousedown(AvatarEditor* ed, float x, float y, int button) 
     return true;
 }
 
-void avatar_editor_on_mouseup(AvatarEditor* ed, int button) {
+void avatar_editor_on_mouseup(AvatarEditor* ed, float x, float y, int button) {
+    (void)x;
+    (void)y;
     if (!ed) return;
     if (button == 2) ed->preview_dragging = false;
 }

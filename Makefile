@@ -126,7 +126,7 @@ android-clean:
 windows-native:
 	$(MAKE) -f Makefile.win
 
-VIEWER_SRCS = $(SRC_DIR)/avatar_viewer.c $(SRC_DIR)/platform.c $(SRC_DIR)/renderer.c $(SRC_DIR)/scene.c $(SRC_DIR)/shader.c $(SRC_DIR)/math_types.c \
+VIEWER_SRCS = $(SRC_DIR)/avatar_viewer.c $(SRC_DIR)/platform.c $(SRC_DIR)/renderer.c $(SRC_DIR)/scene.c $(SRC_DIR)/shader.c $(SRC_DIR)/shader_embed.c $(SRC_DIR)/math_types.c \
               $(SRC_DIR)/mesh_loader.c $(SRC_DIR)/texture.c $(SRC_DIR)/avatar_anim.c $(SRC_DIR)/mesh_primitives.c $(SRC_DIR)/camera.c $(SRC_DIR)/accessory.c \
               $(SRC_DIR)/log.c $(SRC_DIR)/viewer_brick_batch_stub.c
 

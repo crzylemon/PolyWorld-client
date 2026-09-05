@@ -62,6 +62,7 @@ add_library(polyworld SHARED
     "${PW_SRC_DIR}/input.c"
     "${PW_SRC_DIR}/texture.c"
     "${PW_SRC_DIR}/shader.c"
+    "${PW_SRC_DIR}/shader_embed.c"
     "${PW_SRC_DIR}/log.c"
     "${PW_SRC_DIR}/font.c"
     "${PW_SRC_DIR}/auth.c"
@@ -82,6 +83,7 @@ add_library(polyworld SHARED
     "${PW_SRC_DIR}/accessory.c"
     "${PW_SRC_DIR}/skybox.c"
     "${PW_SRC_DIR}/chat.c"
+    "${PW_SRC_DIR}/text_edit.c"
     "${PW_SRC_DIR}/emoji_shortcodes.c"
     "${PW_SRC_DIR}/social.c"
     "${PW_SRC_DIR}/game_menu.c"
@@ -124,7 +126,7 @@ target_compile_definitions(polyworld PRIVATE
 if(DEFINED CLIENT_VERSION)
     target_compile_definitions(polyworld PRIVATE "CLIENT_VERSION=\"${CLIENT_VERSION}\"")
 else()
-    target_compile_definitions(polyworld PRIVATE "CLIENT_VERSION=\"26.4\"")
+    target_compile_definitions(polyworld PRIVATE "CLIENT_VERSION=\"26.4.1\"")
 endif()
 
 target_compile_options(polyworld PRIVATE

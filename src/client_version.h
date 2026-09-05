@@ -8,7 +8,7 @@
 #define PW_CLIENT_VERSION_H
 
 #ifndef CLIENT_VERSION
-#define CLIENT_VERSION "26.4"
+#define CLIENT_VERSION "26.4.1"
 #endif
 
 #endif

@@ -521,8 +521,14 @@ void chat_blur(Chat* c) {
     }
 }
 
-bool chat_on_key(Chat* c, int keycode, bool shift) {
+bool chat_on_key(Chat* c, int keycode, bool shift, bool ctrl) {
     (void)shift;
+    if (c && c->focused && ctrl) {
+        if (keycode == 65 || keycode == 'a' || keycode == 'A')
+            return chat_select_all_input(c);
+        if (keycode == 88 || keycode == 'x' || keycode == 'X')
+            return chat_cut_input(c);
+    }
 
     if (!c->focused && (keycode == 191 || keycode == 47 || keycode == '/')) {
         bool was_open = c->open;
@@ -703,6 +709,21 @@ void chat_set_input_text(Chat* c, const char* utf8) {
 bool chat_copy_input(Chat* c) {
     if (!c || !c->focused) return false;
     platform_clipboard_set(c->input_buf);
+    return true;
+}
+
+bool chat_cut_input(Chat* c) {
+    if (!c || !c->focused) return false;
+    platform_clipboard_set(c->input_buf);
+    c->input_len = 0;
+    c->input_buf[0] = '\0';
+    te_reset(&c->edit, 0);
+    return true;
+}
+
+bool chat_select_all_input(Chat* c) {
+    if (!c || !c->focused) return false;
+    te_select_all(&c->edit, c->input_len);
     return true;
 }
 

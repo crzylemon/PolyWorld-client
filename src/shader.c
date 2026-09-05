@@ -13,7 +13,12 @@
 #include <GLES3/gl3.h>
 #else
 #include <GL/glew.h>
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 #endif
+
+const char* shader_embedded_vert(const char* name);
+const char* shader_embedded_frag(const char* name);
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,6 +46,9 @@
 #endif
 
 #define PWPB_MAGIC 0x42505750u
+
+static int shader_exe_dir(char* out, size_t n);
+static FILE* shader_fopen_rel(const char* rel, const char* mode);
 
 static uint32_t fnv1a(uint32_t h, const void* data, size_t n) {
     const unsigned char* p = (const unsigned char*)data;
@@ -143,13 +151,36 @@ static void shader_cache_uniforms(Shader* s) {
     s->u_voxel_range = glGetUniformLocation(program, "u_voxel_range");
 }
 
-static void shader_hint_binary(unsigned int program) {
 #if PW_USE_GLES
-    glProgramParameteri(program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
+#define pw_glGetProgramBinary glGetProgramBinary
+#define pw_glProgramBinary glProgramBinary
+#define pw_glProgramParameteri glProgramParameteri
+static void shader_bind_binary_procs(void) {}
 #else
-    if (glProgramParameteri)
-        glProgramParameteri(program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
+static PFNGLGETPROGRAMBINARYPROC pw_glGetProgramBinary;
+static PFNGLPROGRAMBINARYPROC pw_glProgramBinary;
+static PFNGLPROGRAMPARAMETERIPROC pw_glProgramParameteri;
+
+static void shader_bind_binary_procs(void) {
+    if (pw_glProgramBinary) return;
+    if (glGetProgramBinary) pw_glGetProgramBinary = glGetProgramBinary;
+    if (glProgramBinary) pw_glProgramBinary = glProgramBinary;
+    if (glProgramParameteri) pw_glProgramParameteri = glProgramParameteri;
+    if (glfwGetCurrentContext()) {
+        if (!pw_glGetProgramBinary)
+            pw_glGetProgramBinary = (PFNGLGETPROGRAMBINARYPROC)glfwGetProcAddress("glGetProgramBinary");
+        if (!pw_glProgramBinary)
+            pw_glProgramBinary = (PFNGLPROGRAMBINARYPROC)glfwGetProcAddress("glProgramBinary");
+        if (!pw_glProgramParameteri)
+            pw_glProgramParameteri = (PFNGLPROGRAMPARAMETERIPROC)glfwGetProcAddress("glProgramParameteri");
+    }
+}
 #endif
+
+static void shader_hint_binary(unsigned int program) {
+    shader_bind_binary_procs();
+    if (pw_glProgramParameteri)
+        pw_glProgramParameteri(program, GL_PROGRAM_BINARY_RETRIEVABLE_HINT, GL_TRUE);
 }
 
 static bool shader_link_program(unsigned int vert, unsigned int frag, unsigned int* out) {
@@ -178,9 +209,11 @@ static bool shader_binaries_supported(void) {
 #ifdef __EMSCRIPTEN__
     return false;
 #else
+    shader_bind_binary_procs();
+    if (!pw_glGetProgramBinary || !pw_glProgramBinary) return false;
     GLint n = 0;
     glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &n);
-    return n > 0 && glGetProgramBinary && glProgramBinary;
+    return n > 0;
 #endif
 }
 
@@ -206,37 +239,59 @@ static void shader_mkdir(const char* path) {
 }
 
 static FILE* shader_open_cache(const char* name, uint32_t crc, const char* mode) {
-    char path[512];
+    char rel[256];
+    snprintf(rel, sizeof(rel), "assets/shaders/cache/%s.%08x.bin", name, crc);
+    if (mode && mode[0] == 'r') {
+        FILE* f = shader_fopen_rel(rel, mode);
+        if (f) return f;
+        char ud[512];
+        char udrel[128];
+        snprintf(udrel, sizeof(udrel), "shaders/cache/%s.%08x.bin", name, crc);
+        if (platform_userdata_path(udrel, ud, sizeof(ud)))
+            return fopen(ud, mode);
+        return NULL;
+    }
     shader_mkdir("assets/shaders/cache");
     shader_mkdir("../assets/shaders/cache");
-    snprintf(path, sizeof(path), "assets/shaders/cache/%s.%08x.bin", name, crc);
-    FILE* f = fopen(path, mode);
+    FILE* f = fopen(rel, mode);
     if (f) return f;
-    snprintf(path, sizeof(path), "../assets/shaders/cache/%s.%08x.bin", name, crc);
+    char path[512];
+    snprintf(path, sizeof(path), "../%s", rel);
     f = fopen(path, mode);
     if (f) return f;
     char ud[512];
-    char rel[128];
-    snprintf(rel, sizeof(rel), "shaders/cache/%s.%08x.bin", name, crc);
-    if (platform_userdata_path(rel, ud, sizeof(ud)))
+    char udrel[128];
+    snprintf(udrel, sizeof(udrel), "shaders/cache/%s.%08x.bin", name, crc);
+    if (platform_userdata_path(udrel, ud, sizeof(ud)))
         return fopen(ud, mode);
     return NULL;
 }
 
 static FILE* shader_open_generic(const char* name, const char* mode) {
-    char path[512];
+    char rel[256];
+    snprintf(rel, sizeof(rel), "assets/shaders/cache/%s.bin", name);
+    if (mode && mode[0] == 'r') {
+        FILE* f = shader_fopen_rel(rel, mode);
+        if (f) return f;
+        char ud[512];
+        char udrel[128];
+        snprintf(udrel, sizeof(udrel), "shaders/cache/%s.bin", name);
+        if (platform_userdata_path(udrel, ud, sizeof(ud)))
+            return fopen(ud, mode);
+        return NULL;
+    }
     shader_mkdir("assets/shaders/cache");
     shader_mkdir("../assets/shaders/cache");
-    snprintf(path, sizeof(path), "assets/shaders/cache/%s.bin", name);
-    FILE* f = fopen(path, mode);
+    FILE* f = fopen(rel, mode);
     if (f) return f;
-    snprintf(path, sizeof(path), "../assets/shaders/cache/%s.bin", name);
+    char path[512];
+    snprintf(path, sizeof(path), "../%s", rel);
     f = fopen(path, mode);
     if (f) return f;
     char ud[512];
-    char rel[128];
-    snprintf(rel, sizeof(rel), "shaders/cache/%s.bin", name);
-    if (platform_userdata_path(rel, ud, sizeof(ud)))
+    char udrel[128];
+    snprintf(udrel, sizeof(udrel), "shaders/cache/%s.bin", name);
+    if (platform_userdata_path(udrel, ud, sizeof(ud)))
         return fopen(ud, mode);
     return NULL;
 }
@@ -260,7 +315,7 @@ static bool shader_try_load_bin_file(Shader* s, FILE* f, const char* name) {
     fclose(f);
 
     unsigned int program = glCreateProgram();
-    glProgramBinary(program, format, bin, (GLsizei)size);
+    pw_glProgramBinary(program, format, bin, (GLsizei)size);
     free(bin);
     int success = 0;
     glGetProgramiv(program, GL_LINK_STATUS, &success);
@@ -286,11 +341,21 @@ static bool shader_try_load_binary_named(Shader* s, const char* name) {
     FILE* f = shader_open_generic(name, "rb");
     if (f && shader_try_load_bin_file(s, f, name)) return true;
 #ifndef __EMSCRIPTEN__
-    const char* dirs[] = { "assets/shaders/cache", "../assets/shaders/cache", NULL };
+    const char* dirs[6];
+    char exe_a[768], exe_b[768], exe[512];
+    int nd = 0;
+    dirs[nd++] = "assets/shaders/cache";
+    dirs[nd++] = "../assets/shaders/cache";
+    if (shader_exe_dir(exe, sizeof(exe))) {
+        snprintf(exe_a, sizeof(exe_a), "%s/assets/shaders/cache", exe);
+        snprintf(exe_b, sizeof(exe_b), "%s/../assets/shaders/cache", exe);
+        dirs[nd++] = exe_a;
+        dirs[nd++] = exe_b;
+    }
     char prefix[128];
     snprintf(prefix, sizeof(prefix), "%s.", name);
     size_t plen = strlen(prefix);
-    for (int di = 0; dirs[di]; di++) {
+    for (int di = 0; di < nd; di++) {
         DIR* d = opendir(dirs[di]);
         if (!d) continue;
         struct dirent* ent;
@@ -323,7 +388,7 @@ static void shader_save_binary(unsigned int program, const char* name, uint32_t 
     if (!bin) return;
     GLenum format = 0;
     GLsizei out_len = 0;
-    glGetProgramBinary(program, len, &out_len, &format, bin);
+    pw_glGetProgramBinary(program, len, &out_len, &format, bin);
     if (out_len <= 0) { free(bin); return; }
     FILE* f = shader_open_cache(name, crc, "wb");
     if (f) {
@@ -382,50 +447,50 @@ static char* shader_join2(const char* a, const char* b) {
     return out;
 }
 
-static FILE* shader_fopen_asset(const char* rel) {
-    if (!rel || !rel[0]) return NULL;
-    FILE* f = fopen(rel, "rb");
-    if (f) return f;
+static int shader_exe_dir(char* out, size_t n) {
+    if (!out || n < 4) return 0;
+    out[0] = '\0';
+#ifdef _WIN32
+    DWORD k = GetModuleFileNameA(NULL, out, (DWORD)n);
+    if (k == 0 || k >= n) return 0;
+    char* last = strrchr(out, '\\');
+    if (!last) last = strrchr(out, '/');
+    if (!last) return 0;
+    *last = '\0';
+    return 1;
+#else
+    ssize_t k = readlink("/proc/self/exe", out, n - 1);
+    if (k <= 0) return 0;
+    out[k] = '\0';
+    char* last = strrchr(out, '/');
+    if (!last) return 0;
+    *last = '\0';
+    return 1;
+#endif
+}
 
+static FILE* shader_fopen_rel(const char* rel, const char* mode) {
+    if (!rel || !rel[0]) return NULL;
+    FILE* f = fopen(rel, mode);
+    if (f) return f;
     char buf[768];
     snprintf(buf, sizeof(buf), "../%s", rel);
-    f = fopen(buf, "rb");
+    f = fopen(buf, mode);
     if (f) return f;
-
-#ifdef _WIN32
-    char exe[MAX_PATH];
-    DWORD n = GetModuleFileNameA(NULL, exe, MAX_PATH);
-    if (n > 0 && n < MAX_PATH) {
-        char* last = strrchr(exe, '\\');
-        if (!last) last = strrchr(exe, '/');
-        if (last) {
-            *last = '\0';
-            snprintf(buf, sizeof(buf), "%s\\%s", exe, rel);
-            f = fopen(buf, "rb");
-            if (f) return f;
-            snprintf(buf, sizeof(buf), "%s\\..\\%s", exe, rel);
-            f = fopen(buf, "rb");
-            if (f) return f;
-        }
-    }
-#else
     char exe[512];
-    ssize_t n = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
-    if (n > 0) {
-        exe[n] = '\0';
-        char* last = strrchr(exe, '/');
-        if (last) {
-            *last = '\0';
-            snprintf(buf, sizeof(buf), "%s/%s", exe, rel);
-            f = fopen(buf, "rb");
-            if (f) return f;
-            snprintf(buf, sizeof(buf), "%s/../%s", exe, rel);
-            f = fopen(buf, "rb");
-            if (f) return f;
-        }
+    if (shader_exe_dir(exe, sizeof(exe))) {
+        snprintf(buf, sizeof(buf), "%s/%s", exe, rel);
+        f = fopen(buf, mode);
+        if (f) return f;
+        snprintf(buf, sizeof(buf), "%s/../%s", exe, rel);
+        f = fopen(buf, mode);
+        if (f) return f;
     }
-#endif
     return NULL;
+}
+
+static FILE* shader_fopen_asset(const char* rel) {
+    return shader_fopen_rel(rel, "rb");
 }
 
 static char* shader_slurp(FILE* f) {
@@ -449,6 +514,7 @@ static char* shader_read_asset_file(const char* rel) {
 
 bool shader_compile_asset(Shader* s, const char* name) {
     s->program = 0;
+    shader_bind_binary_procs();
 
 #if PW_USE_GLES
     const char* header =
@@ -465,38 +531,42 @@ bool shader_compile_asset(Shader* s, const char* name) {
         "#define VOXEL_SAMPLER sampler3D\n";
 #endif
 
-    char* body_v = NULL;
-    char* body_f = NULL;
+    char* heap_v = NULL;
+    char* heap_f = NULL;
+    const char* body_v = NULL;
+    const char* body_f = NULL;
     if (name) {
         char path[256];
         snprintf(path, sizeof(path), "assets/shaders/%s.vert", name);
-        body_v = shader_read_asset_file(path);
-        if (!body_v) {
+        heap_v = shader_read_asset_file(path);
+        if (!heap_v) {
             snprintf(path, sizeof(path), "assets/shaders/NO_PROD1/%s.vert", name);
-            body_v = shader_read_asset_file(path);
+            heap_v = shader_read_asset_file(path);
         }
         snprintf(path, sizeof(path), "assets/shaders/%s.frag", name);
-        body_f = shader_read_asset_file(path);
-        if (!body_f) {
+        heap_f = shader_read_asset_file(path);
+        if (!heap_f) {
             snprintf(path, sizeof(path), "assets/shaders/NO_PROD1/%s.frag", name);
-            body_f = shader_read_asset_file(path);
+            heap_f = shader_read_asset_file(path);
         }
+        body_v = heap_v ? heap_v : shader_embedded_vert(name);
+        body_f = heap_f ? heap_f : shader_embedded_frag(name);
     }
 
     if (!body_v || !body_f) {
-        free(body_v);
-        free(body_f);
+        free(heap_v);
+        free(heap_f);
         if (name && shader_try_load_binary_named(s, name))
             return true;
-        PW_ERR(ERR_SHADER, "Missing assets/shaders/%s.vert/.frag and no usable program binary\n",
+        PW_ERR(ERR_SHADER, "Missing shader '%s' (no GLSL, no embed, no program binary)\n",
                name ? name : "?");
         return false;
     }
 
     char* vert = shader_join2(header, body_v);
     char* frag = shader_join2(header, body_f);
-    free(body_v);
-    free(body_f);
+    free(heap_v);
+    free(heap_f);
     if (!vert || !frag) {
         free(vert);
         free(frag);
@@ -552,7 +622,7 @@ bool shader_warmup_all(void) {
     static const char* names[] = {
         "world", "ssao", "ssao_blur", "shadow", "fog", "debug_line", "skybox",
         "ui_color", "ui_tex", "ui_round", "ui_round_rgb", "ui_round_tex",
-        "ui_text", "ui_quad", "ui_touch", "font_mono", "font_color", "ui_splash",
+        "ui_text", "ui_quad", "ui_touch", "font_mono", "font_color", "ui_splash", "vignette",
         NULL
     };
     bool ok = true;

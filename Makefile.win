@@ -1,4 +1,4 @@
-# PolyWorld client — Windows cross-compile (MinGW-w64 from Linux)
+# PolyWorld client for Windows cross-compile (MinGW-w64 from Linux)
 #   make -f Makefile.win
 #
 # Prefers system x86_64-w64-mingw32-gcc, else tools/llvm-mingw-*/bin
