@@ -1,0 +1,61 @@
+<pw game="0">
+  <object type="game"><name>game</name><children>
+    <object type="workspace"><name>Workspace</name><children>
+      <object type="brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <size><w>32</w><h>1</h><l>32</l></size>
+        <position><x>0</x><y>-0.5</y><z>0</z></position>
+        <color><r>50</r><g>150</g><b>50</b></color>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Start</name>
+        <anchored>true</anchored>
+        <size><w>6</w><h>1</h><l>6</l></size>
+        <position><x>0</x><y>0.5</y><z>0</z></position>
+        <color><r>80</r><g>200</g><b>80</b></color>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Platform1</name>
+        <anchored>true</anchored>
+        <size><w>4</w><h>1</h><l>4</l></size>
+        <position><x>0</x><y>2</y><z>10</z></position>
+        <color><r>255</r><g>180</g><b>40</b></color>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Platform2</name>
+        <anchored>true</anchored>
+        <size><w>4</w><h>1</h><l>4</l></size>
+        <position><x>6</x><y>4</y><z>18</z></position>
+        <color><r>255</r><g>120</g><b>40</b></color>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Platform3</name>
+        <anchored>true</anchored>
+        <size><w>4</w><h>1</h><l>4</l></size>
+        <position><x>-4</x><y>6</y><z>26</z></position>
+        <color><r>255</r><g>80</g><b>80</b></color>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Finish</name>
+        <anchored>true</anchored>
+        <size><w>8</w><h>1</h><l>8</l></size>
+        <position><x>0</x><y>8</y><z>36</z></position>
+        <color><r>80</r><g>120</g><b>255</b></color>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+    </children></object>
+  </children></object>
+  <respawn><x>0</x><y>3</y><z>0</z></respawn>
+</pw>

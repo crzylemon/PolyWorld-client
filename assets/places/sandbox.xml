@@ -1,0 +1,55 @@
+<pw game="1">
+    <object type="game">
+        <name>game</name>
+        <children>
+            <object type="workspace">
+                <name>Workspace</name>
+                <children>
+                    <object type="brick">
+                        <name>Baseplate</name>
+                        <anchored>true</anchored>
+                        <size>
+                            <w>1024</w>
+                            <h>1</h>
+                            <l>1024</l>
+                        </size>
+                        <position>
+                            <x>0</x>
+                            <y>0</y>
+                            <z>0</z>
+                        </position>
+                        <rotation>
+                            <x>0</x>
+                            <y>0</y>
+                            <z>0</z>
+                        </rotation>
+                        <color>
+                            <r>0</r>
+                            <g>255</g>
+                            <b>0</b>
+                        </color>
+                        <surface>
+                            <top>stud</top>
+                            <bottom>inlet</bottom>
+                            <front>smooth</front>
+                            <back>smooth</back>
+                            <left>smooth</left>
+                            <right>smooth</right>
+                        </surface>
+                        <children>
+                        </children>
+                    </object>
+                </children>
+            </object>
+    <object type="starter-items"><name>Starter Items</name><children>
+      <object type="tool"><name>Sword</name><isPreset>true</isPreset><preset>Sword</preset><children></children></object>
+      <object type="tool"><name>Rocket Launcher</name><isPreset>true</isPreset><preset>RocketLauncher</preset><children></children></object>
+      <object type="tool"><name>Time Bomb</name><isPreset>true</isPreset><preset>TimeBomb</preset><children></children></object>
+      <object type="tool"><name>Superball</name><isPreset>true</isPreset><preset>Superball</preset><children></children></object>
+      <object type="tool"><name>Slingshot</name><isPreset>true</isPreset><preset>Slingshot</preset><children></children></object>
+      <object type="tool"><name>Paintball Gun</name><isPreset>true</isPreset><preset>PaintballGun</preset><children></children></object>
+      <object type="tool"><name>Trowel</name><isPreset>true</isPreset><preset>Trowel</preset><children></children></object>
+    </children></object></children></object>
+        </children>
+    </object>
+</pw>

@@ -1,0 +1,265 @@
+<pw game="30">
+  <object type="game"><name>game</name><children>
+    <object type="workspace"><name>Workspace</name><children>
+      <object type="brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <size><w>64</w><h>1</h><l>64</l></size>
+        <position><x>1</x><y>-0.5</y><z>0</z></position>
+        <color><r>50</r><g>150</g><b>50</b></color>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Trunk</name>
+        <anchored>true</anchored>
+        <size><w>2</w><h>9</h><l>2</l></size>
+        <position><x>19</x><y>4.5</y><z>6</z></position>
+        <color><r>132</r><g>88</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Leaves</name>
+        <anchored>true</anchored>
+        <size><w>10</w><h>9</h><l>10</l></size>
+        <position><x>19</x><y>11.5</y><z>6</z></position>
+        <color><r>80</r><g>152</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Leaves</name>
+        <anchored>true</anchored>
+        <size><w>10</w><h>9</h><l>10</l></size>
+        <position><x>-19</x><y>11.5</y><z>-21</z></position>
+        <color><r>80</r><g>152</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Trunk</name>
+        <anchored>true</anchored>
+        <size><w>2</w><h>9</h><l>2</l></size>
+        <position><x>-19</x><y>4.5</y><z>-21</z></position>
+        <color><r>132</r><g>88</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Roads</name>
+        <anchored>true</anchored>
+        <size><w>7</w><h>1</h><l>64</l></size>
+        <position><x>1.5</x><y>0.5</y><z>0</z></position>
+        <color><r>152</r><g>163</g><b>168</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Leg</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>2</h><l>1</l></size>
+        <position><x>-14.5</x><y>1</y><z>23.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Leg</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>2</h><l>1</l></size>
+        <position><x>-14.5</x><y>1</y><z>18.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back support</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>6</h><l>1</l></size>
+        <position><x>-17.5</x><y>3</y><z>18.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back support</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>6</h><l>1</l></size>
+        <position><x>-17.5</x><y>3</y><z>23.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Seat</name>
+        <anchored>true</anchored>
+        <size><w>3</w><h>1</h><l>6</l></size>
+        <position><x>-15.5</x><y>2.5</y><z>21</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>1</h><l>6</l></size>
+        <position><x>-17.5</x><y>6.5</y><z>21</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>1</h><l>4</l></size>
+        <position><x>-17.5</x><y>4.5</y><z>21</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>1</h><l>4</l></size>
+        <position><x>-17.5</x><y>2.5</y><z>21</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Armrest</name>
+        <anchored>true</anchored>
+        <size><w>3</w><h>1</h><l>1</l></size>
+        <position><x>-15.5</x><y>3.5</y><z>18.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Armrest</name>
+        <anchored>true</anchored>
+        <size><w>3</w><h>1</h><l>1</l></size>
+        <position><x>-15.5</x><y>3.5</y><z>23.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Armrest</name>
+        <anchored>true</anchored>
+        <size><w>3</w><h>1</h><l>1</l></size>
+        <position><x>17.5</x><y>3.5</y><z>-14.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>1</h><l>4</l></size>
+        <position><x>19.5</x><y>2.5</y><z>-17</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Seat</name>
+        <anchored>true</anchored>
+        <size><w>3</w><h>1</h><l>6</l></size>
+        <position><x>17.5</x><y>2.5</y><z>-17</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Armrest</name>
+        <anchored>true</anchored>
+        <size><w>3</w><h>1</h><l>1</l></size>
+        <position><x>17.5</x><y>3.5</y><z>-19.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back support</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>6</h><l>1</l></size>
+        <position><x>19.5</x><y>3</y><z>-14.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>1</h><l>4</l></size>
+        <position><x>19.5</x><y>4.5</y><z>-17</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back support</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>6</h><l>1</l></size>
+        <position><x>19.5</x><y>3</y><z>-19.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Back</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>1</h><l>6</l></size>
+        <position><x>19.5</x><y>6.5</y><z>-17</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Leg</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>2</h><l>1</l></size>
+        <position><x>16.5</x><y>1</y><z>-14.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Leg</name>
+        <anchored>true</anchored>
+        <size><w>1</w><h>2</h><l>1</l></size>
+        <position><x>16.5</x><y>1</y><z>-19.5</z></position>
+        <color><r>117</r><g>67</g><b>0</b></color>
+        <surface><top>stud</top><bottom>inlet</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+    </children></object>
+  </children></object>
+  <respawn><x>0.00</x><y>5.00</y><z>0.00</z></respawn>
+  <model>
+    <name>Tree</name>
+    <parent>0</parent>
+    <parentIsModel>false</parentIsModel>
+    <children><2 /><1 /></children>
+  </model>
+  <model>
+    <name>Tree</name>
+    <parent>0</parent>
+    <parentIsModel>false</parentIsModel>
+    <children><3 /><4 /></children>
+  </model>
+  <model>
+    <name>Bench</name>
+    <parent>0</parent>
+    <parentIsModel>false</parentIsModel>
+    <children><15 /><13 /><10 /><14 /><9 /><12 /><8 /><11 /><6 /><7 /></children>
+  </model>
+  <model>
+    <name>Bench</name>
+    <parent>0</parent>
+    <parentIsModel>false</parentIsModel>
+    <children><16 /><17 /><18 /><19 /><20 /><21 /><22 /><23 /><24 /><25 /></children>
+  </model>
+</pw>

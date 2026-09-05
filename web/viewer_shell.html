@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+#canvas { display: block; width: 100%; height: 100%; outline: none; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="0"></canvas>
+<script>
+var canvas = document.getElementById('canvas');
+
+// Orbit controls
+var dragging = false, lastX = 0, lastY = 0;
+canvas.addEventListener('mousedown', function(e) { dragging = true; lastX = e.clientX; lastY = e.clientY; e.preventDefault(); });
+window.addEventListener('mouseup', function() { dragging = false; });
+window.addEventListener('mousemove', function(e) {
+    if (!dragging || !Module || !Module._viewer_rotate) return;
+    Module._viewer_rotate(e.clientX - lastX, e.clientY - lastY);
+    lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    if (Module && Module._viewer_zoom) {
+        Module._viewer_zoom(e.deltaY > 0 ? 1.0 : -1.0);
+    }
+}, { passive: false });
+// Touch
+canvas.addEventListener('touchstart', function(e) { dragging = true; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY; e.preventDefault(); });
+window.addEventListener('touchend', function() { dragging = false; });
+window.addEventListener('touchmove', function(e) {
+    if (!dragging || !Module || !Module._viewer_rotate) return;
+    Module._viewer_rotate(e.touches[0].clientX - lastX, e.touches[0].clientY - lastY);
+    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+});
+
+// Parse color from URL params
+var params = new URLSearchParams(window.location.search);
+var colorHex = params.get('color') || '#f5f5f5';
+
+// Per-slot mesh styles for composing new/legacy body parts
+var slotMesh = {
+    shirt: (params.get('shirt_mesh') || 'legacy') === 'new' ? 'new' : 'legacy',
+    pants: (params.get('pants_mesh') || 'legacy') === 'new' ? 'new' : 'legacy',
+    head: (params.get('head_mesh') || 'legacy') === 'new' ? 'new' : 'legacy'
+};
+
+function meshFlagsFromSlots() {
+    var flags = 0;
+    if (slotMesh.shirt === 'new') flags |= 1;
+    if (slotMesh.pants === 'new') flags |= 2;
+    if (slotMesh.head === 'new') flags |= 4;
+    return flags;
+}
+
+function applyMeshFlags() {
+    if (!Module || !Module._viewer_set_mesh_flags) return;
+    var pkg = parseInt(params.get('package') || '', 10);
+    if (!isNaN(pkg) && params.get('shirt_mesh') == null && params.get('pants_mesh') == null && params.get('head_mesh') == null) {
+        // Initial load may pass equipped_package bitfield directly
+        Module._viewer_set_mesh_flags(pkg);
+        return;
+    }
+    Module._viewer_set_mesh_flags(meshFlagsFromSlots());
+}
+
+// Resize
+function resizeCanvas() {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    if (Module && Module._resize_canvas) Module._resize_canvas(canvas.width, canvas.height);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Helper to load a texture slot
+function loadSlotTexture(slot, catalogId, type) {
+    if (!Module || !Module.ccall) return;
+    var url;
+    if (type === 'shirt') {
+        url = (catalogId && catalogId !== '0') ? 'https://polyworld.games/uploads/shirts/' + catalogId + '.png' : 'https://polyworld.games/assets/wasm/avatar.png';
+    } else if (type === 'pants') {
+        url = (catalogId && catalogId !== '0') ? 'https://polyworld.games/uploads/pants/' + catalogId + '.png' : 'https://polyworld.games/assets/wasm/avatar.png';
+    } else if (type === 'head') {
+        var fileNum = (catalogId && catalogId !== '0') ? parseInt(catalogId) : 0;
+        url = (fileNum > 0) ? 'https://polyworld.games/uploads/heads/' + fileNum + '.png' : 'https://polyworld.games/assets/wasm/avatar.png';
+    }
+    Module.ccall('viewer_load_slot_texture', null, ['number', 'string'], [slot, url]);
+}
+
+function setSlotMesh(slot, style) {
+    if (slot !== 'shirt' && slot !== 'pants' && slot !== 'head') return;
+    slotMesh[slot] = (style === 'new') ? 'new' : 'legacy';
+    // After first equip, prefer live slot styles over URL package
+    params.delete('package');
+    applyMeshFlags();
+}
+
+// Listen for messages from parent (avatar editor)
+window.addEventListener('message', function(e) {
+    if (!e.data || !e.data.type) return;
+    if (e.data.type === 'color' && Module && Module._viewer_set_color) {
+        Module._viewer_set_color(e.data.r, e.data.g, e.data.b);
+    } else if (e.data.type === 'equip') {
+        if (e.data.slot === 'shirt') {
+            setSlotMesh('shirt', e.data.mesh || e.data.mesh_style || 'legacy');
+            loadSlotTexture(0, e.data.id, 'shirt');
+        } else if (e.data.slot === 'pants') {
+            setSlotMesh('pants', e.data.mesh || e.data.mesh_style || 'legacy');
+            loadSlotTexture(1, e.data.id, 'pants');
+        } else if (e.data.slot === 'head') {
+            setSlotMesh('head', e.data.mesh || e.data.mesh_style || 'legacy');
+            loadSlotTexture(2, e.data.id, 'head');
+        } else if (e.data.slot === 'accessory') {
+            loadAccessory(e.data.id);
+        }
+    } else if (e.data.type === 'mesh_flags' && Module && Module._viewer_set_mesh_flags) {
+        Module._viewer_set_mesh_flags(e.data.flags | 0);
+    }
+});
+
+// Accessory loading — id may be a single id or comma-separated list ("12,45,7")
+function loadAccessory(id) {
+    if (!Module || !Module.ccall) return;
+    var csv = (id === null || id === undefined) ? '' : String(id);
+    if (!csv || csv === '0') {
+        Module.ccall('viewer_unload_accessory', null, [], []);
+        return;
+    }
+    // Prefer multi-accessory export; only fall back if it is missing.
+    if (typeof Module._viewer_set_accessories === 'function') {
+        Module.ccall('viewer_set_accessories', null, ['string'], [csv]);
+        return;
+    }
+    var first = csv.split(',')[0].trim();
+    if (!first || first === '0') {
+        Module.ccall('viewer_unload_accessory', null, [], []);
+        return;
+    }
+    var objUrl = 'https://polyworld.games/uploads/accessories/' + first + '.obj';
+    var texUrl = 'https://polyworld.games/uploads/accessories/' + first + '.png';
+    Module.ccall('viewer_load_accessory', null, ['string', 'string'], [objUrl, texUrl]);
+}
+
+// Set color after init
+var Module = {
+    canvas: canvas,
+    onRuntimeInitialized: function() {
+        resizeCanvas();
+        // Apply skin color after a short delay (main() resets defaults on first run)
+        setTimeout(function() {
+            if (colorHex && Module._viewer_set_color) {
+                var hex = colorHex.replace('#', '');
+                var r = parseInt(hex.substr(0,2), 16) / 255.0;
+                var g = parseInt(hex.substr(2,2), 16) / 255.0;
+                var b = parseInt(hex.substr(4,2), 16) / 255.0;
+                Module._viewer_set_color(r, g, b);
+            }
+            applyMeshFlags();
+            // Load initial textures from URL params
+            var shirt = params.get('shirt') || '0';
+            var pants = params.get('pants') || '0';
+            var head = params.get('head') || '0';
+            var accessory = params.get('accessory') || '0';
+            loadSlotTexture(0, shirt, 'shirt');
+            loadSlotTexture(1, pants, 'pants');
+            loadSlotTexture(2, head, 'head');
+            if (accessory && accessory !== '0') loadAccessory(accessory);
+        }, 100);
+    },
+    print: function(t) { console.log(t); },
+    printErr: function(t) { console.error(t); }
+};
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

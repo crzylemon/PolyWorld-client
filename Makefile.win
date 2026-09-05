@@ -1,0 +1,57 @@
+# PolyWorld client — Windows cross-compile (MinGW-w64 from Linux)
+#   make -f Makefile.win
+#
+# Prefers system x86_64-w64-mingw32-gcc, else tools/llvm-mingw-*/bin
+
+LLVM_MINGW_BIN := $(firstword $(wildcard tools/llvm-mingw-*/bin))
+ifneq ($(LLVM_MINGW_BIN),)
+  export PATH := $(CURDIR)/$(LLVM_MINGW_BIN):$(PATH)
+endif
+
+CC       = x86_64-w64-mingw32-gcc
+CFLAGS   = -Wall -Wextra -std=gnu11 -O2 -D_WIN32 -DGLEW_STATIC -Wno-cast-function-type
+
+JOLTC_SRC   = libs/joltc
+ifeq ($(wildcard libs/joltc-build-win-llvm/libjoltc.a),)
+JOLTC_BUILD = libs/joltc-build-win
+else
+JOLTC_BUILD = libs/joltc-build-win-llvm
+endif
+JOLTC_INC   = -I$(JOLTC_SRC)
+JOLTC_LIB   = -L$(JOLTC_BUILD) -ljoltc -L$(JOLTC_BUILD)/JoltPhysics/Build -lJolt
+
+WIN_DIR     = libs/win64
+WIN_INC     = -I$(WIN_DIR)/include
+WIN_LIB     = -L$(WIN_DIR)/lib
+
+LUA_SRC     = libs/lua-5.4.7/src
+LUA_INC     = -I$(LUA_SRC)
+LUA_SRCS    = $(filter-out $(LUA_SRC)/lua.c $(LUA_SRC)/luac.c, $(wildcard $(LUA_SRC)/*.c))
+
+SRC_DIR  = src
+OUT_DIR  = build
+
+ENGINE_SRCS = $(filter-out $(SRC_DIR)/avatar_viewer.c $(SRC_DIR)/studio_wasm.c $(SRC_DIR)/platform.c $(SRC_DIR)/android_boot.c $(SRC_DIR)/platform_android.c $(SRC_DIR)/viewer_brick_batch_stub.c, $(wildcard $(SRC_DIR)/*.c))
+
+GLEW_SRC = $(WIN_DIR)/glew.c
+
+# no console from Start / taskbar (main.c still attaches if you run it from cmd)
+WIN_LIBS = -lglfw3 -lopengl32 -lgdi32 -luser32 -lkernel32 \
+           -lws2_32 -lpsapi -lwinmm -lole32 -lurlmon -lwinhttp -lm -lstdc++ -static -mwindows
+
+.PHONY: all clean
+
+all: $(OUT_DIR)/polyworld.exe
+
+$(OUT_DIR)/polyworld.exe: $(ENGINE_SRCS) $(LUA_SRCS) $(GLEW_SRC) | $(OUT_DIR)
+	@command -v $(CC) >/dev/null 2>&1 || { echo "No $(CC) in PATH. Install gcc-mingw-w64-x86-64 or unpack llvm-mingw under tools/"; exit 1; }
+	@test -f $(JOLTC_BUILD)/libjoltc.a || { echo "ERROR: missing $(JOLTC_BUILD)/libjoltc.a"; exit 1; }
+	$(CC) $(CFLAGS) -static $(JOLTC_INC) $(LUA_INC) $(WIN_INC) \
+		$(ENGINE_SRCS) $(LUA_SRCS) $(GLEW_SRC) \
+		-o $@ $(WIN_LIB) $(JOLTC_LIB) $(WIN_LIBS)
+
+$(OUT_DIR):
+	mkdir -p $(OUT_DIR)
+
+clean:
+	rm -f $(OUT_DIR)/polyworld.exe

@@ -1,0 +1,16 @@
+<pw game="0">
+  <object type="game"><name>game</name><children>
+    <object type="workspace"><name>Workspace</name><children>
+      <object type="brick">
+        <name>Flatgrass</name>
+        <anchored>true</anchored>
+        <size><w>1024</w><h>1</h><l>1024</l></size>
+        <position><x>0</x><y>-0.5</y><z>0</z></position>
+        <color><r>70</r><g>160</g><b>70</b></color>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+    </children></object>
+  </children></object>
+  <respawn><x>0</x><y>5</y><z>0</z></respawn>
+</pw>

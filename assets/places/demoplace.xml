@@ -1,0 +1,94 @@
+<pw game="0">
+  <object type="game"><name>game</name><children>
+    <object type="workspace"><name>Workspace</name><children>
+          <object type="brick">
+            <name>Baseplate</name>
+            <anchored>true</anchored>
+            <size><w>64.0</w><h>2.0</h><l>64.0</l></size>
+            <position><x>0.0</x><y>0.0</y><z>0.0</z></position>
+            <color><r>163</r><g>162</g><b>165</b></color>
+            <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+            <children/>
+          </object>
+          <object type="brick">
+            <name>SpawnLocation</name>
+            <anchored>true</anchored>
+            <size><w>8.0</w><h>1.0</h><l>8.0</l></size>
+            <position><x>27.0</x><y>1.5</y><z>27.0</z></position>
+            <color><r>27</r><g>42</g><b>53</b></color>
+            <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+            <children/>
+          </object>
+          <object type="brick">
+            <name>Part</name>
+            <anchored>true</anchored>
+            <size><w>4.0</w><h>4.0</h><l>4.0</l></size>
+            <position><x>-29.0</x><y>3.0</y><z>-29.0</z></position>
+            <color><r>255</r><g>0</g><b>4</b></color>
+            <surface><top>smooth</top><bottom>smooth</bottom><front>inlet</front><back>stud</back><left>smooth</left><right>smooth</right></surface>
+            <children/>
+          </object>
+          <object type="brick">
+            <name>Part</name>
+            <anchored>true</anchored>
+            <size><w>4.0</w><h>4.0</h><l>4.0</l></size>
+            <position><x>-29.0</x><y>3.0</y><z>-13.0</z></position>
+            <color><r>0</r><g>110</g><b>255</b></color>
+            <surface><top>smooth</top><bottom>smooth</bottom><front>stud</front><back>inlet</back><left>smooth</left><right>smooth</right></surface>
+            <children/>
+          </object>
+          <object type="brick">
+            <name>TravelPart</name>
+            <anchored>true</anchored>
+            <size><w>4.0</w><h>4.0</h><l>4.0</l></size>
+            <position><x>-29.0</x><y>7.0</y><z>-29.0</z></position>
+            <color><r>143</r><g>0</g><b>245</b></color>
+            <surface><top>stud</top><bottom>stud</bottom><front>stud</front><back>stud</back><left>stud</left><right>stud</right></surface>
+            <children/>
+          </object>
+          <object type="brick">
+            <name>SpinPart</name>
+            <anchored>true</anchored>
+            <size><w>4.0</w><h>4.0</h><l>4.0</l></size>
+            <position><x>-29.0</x><y>7.0</y><z>21.0</z></position>
+            <color><r>88</r><g>159</g><b>245</b></color>
+            <surface><top>stud</top><bottom>stud</bottom><front>stud</front><back>stud</back><left>stud</left><right>stud</right></surface>
+            <children/>
+          </object>
+          <object type="brick">
+            <name>KillBrick</name>
+            <anchored>true</anchored>
+            <size><w>17.0</w><h>1.0</h><l>11.0</l></size>
+            <position><x>20.5</x><y>1.5</y><z>-24.5</z></position>
+            <color><r>255</r><g>0</g><b>4</b></color>
+            <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+            <children/>
+          </object>
+          <object type="brick">
+            <name>BoomBrick</name>
+            <anchored>true</anchored>
+            <size><w>17.0</w><h>1.0</h><l>11.0</l></size>
+            <position><x>1.5</x><y>1.5</y><z>-24.5</z></position>
+            <color><r>255</r><g>162</g><b>0</b></color>
+            <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+            <children/>
+          </object>
+          <object type="brick">
+            <name>ColorfulPart</name>
+            <anchored>true</anchored>
+            <size><w>4.0</w><h>4.0</h><l>4.0</l></size>
+            <position><x>-28.0</x><y>7.0</y><z>6.0</z></position>
+            <color><r>88</r><g>159</g><b>245</b></color>
+            <surface><top>stud</top><bottom>stud</bottom><front>stud</front><back>stud</back><left>stud</left><right>stud</right></surface>
+            <children/>
+          </object>
+      <object type="script" parentBrick="4">Script</object>
+      <object type="script" parentBrick="5">Script_1</object>
+      <object type="script" parentBrick="6">Script_2</object>
+      <object type="script" parentBrick="7">Script_3</object>
+      <object type="script" parentBrick="8">Script_4</object>
+      <object type="script">NPC</object>
+    </children></object>
+  </children></object>
+  <respawn><x>27.00</x><y>7.50</y><z>27.00</z></respawn>
+</pw>

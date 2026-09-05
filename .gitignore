@@ -1,0 +1,58 @@
+# Build
+build/
+*.o
+*.a
+*.exe
+*.dll
+*.so
+*.dylib
+joltc
+ode
+
+# Toolchains (downloaded locally, not shipped)
+tools/mingw-gcc/
+tools/llvm-mingw*/
+tools/*.tgz
+tools/*.tar.xz
+tools/*.tar.gz
+tools/*.zip
+tools/venv/
+
+# Android SDK / Gradle / NDK build junk
+android/.android-sdk/
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/**/.cxx/
+android/**/build/
+*.apk
+*.ap_
+*.dex
+*.iml
+
+# Compiled libs (keep source under libs/joltc, libs/ode, libs/lua-*)
+libs/*-build/
+libs/*-build-*/
+libs/glfw-src/
+libs/glfw-build/
+libs/openxr-sdk/
+libs/monado/
+libs/monado-build/
+
+# Runtime junk
+.DS_Store
+*.swp
+*~
+options.cfg
+polyworld_session.dat
+chatlog.txt
+backtrace.txt
+screenshots/
+assets/shaders/cache/*.bin
+
+# Editor
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+web/studio_shell.html

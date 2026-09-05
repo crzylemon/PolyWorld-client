@@ -1,0 +1,38 @@
+[
+  {
+    "id": "blank",
+    "name": "Blank Baseplate",
+    "file": "blank.xml",
+    "description": "Blank baseplate."
+  },
+  {
+    "id": "flatgrass",
+    "name": "Flatgrass",
+    "file": "flatgrass.xml",
+    "description": "Open grass field with nothing in it."
+  },
+  {
+    "id": "obby",
+    "name": "Obby",
+    "file": "obby.xml",
+    "description": "Very short obby!"
+  },
+  {
+    "id": "park",
+    "name": "Park",
+    "file": "park.xml",
+    "description": "Small park with a path, 2 benches, and 2 trees."
+  },
+  {
+    "id": "demoplace",
+    "name": "Script Guide",
+    "file": "demoplace.xml",
+    "description": "A place with multiple scripts for some parts and an NPC"
+  },
+  {
+    "id": "sandbox",
+    "name": "Sandbox",
+    "file": "sandbox.xml",
+    "description": "Tools and a large baseplate."
+  }
+]

@@ -1,0 +1,375 @@
+<pw game="159">
+  <object type="game"><name>game</name>
+    <projectile-unstuck-fix>false</projectile-unstuck-fix>
+    <debris-unstuck-fix>false</debris-unstuck-fix>
+    <copy-allow>false</copy-allow>
+    <children>
+    <object type="workspace"><name>Workspace</name><children>
+      <object type="cylinder-brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>8</r><l>18</l></size>
+        <position><x>0</x><y>-4</y><z>0</z></position>
+        <color><r>27</r><g>42</g><b>53</b></color>
+        <material>Metal</material>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>10</w><h>0.1</h><l>10</l></size>
+        <position><x>0</x><y>5.05</y><z>0</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>98</r><g>95</g><b>97</b></color>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>1</w><h>24.1</h><l>13</l></size>
+        <position><x>1.5</x><y>16.15</y><z>-5.5</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>98</r><g>95</g><b>97</b></color>
+        <alpha>0.000</alpha>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>1</w><h>24.1</h><l>12</l></size>
+        <position><x>1</x><y>16.15</y><z>5.5</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>98</r><g>95</g><b>97</b></color>
+        <alpha>0.000</alpha>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>12</w><h>24.1</h><l>1</l></size>
+        <position><x>-5.5</x><y>16.15</y><z>0</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>98</r><g>95</g><b>97</b></color>
+        <alpha>0.000</alpha>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>12</w><h>13.1</h><l>1</l></size>
+        <position><x>5.5</x><y>21.65</y><z>0</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>98</r><g>95</g><b>97</b></color>
+        <alpha>0.000</alpha>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Border</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>0.5</w><h>6</h><l>0.1</l></size>
+        <position><x>6.55</x><y>10</y><z>-4.25</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>162</r><g>161</g><b>164</b></color>
+        <material>Metal</material>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Border</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>0.5</w><h>6</h><l>0.1</l></size>
+        <position><x>6.55</x><y>10</y><z>4.25</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>162</r><g>161</g><b>164</b></color>
+        <material>Metal</material>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Border</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>8</w><h>0.5</h><l>0.1</l></size>
+        <position><x>6.55</x><y>12.75</y><z>-6.557e-07</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>162</r><g>161</g><b>164</b></color>
+        <material>Metal</material>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Border</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>8</w><h>1</h><l>0.1</l></size>
+        <position><x>6.55</x><y>7.5</y><z>-6.557e-07</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>162</r><g>161</g><b>164</b></color>
+        <material>Metal</material>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>DISPLAY_UI</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>8</w><h>4.5</h><l>0.1</l></size>
+        <position><x>6.55</x><y>10.25</y><z>-6.557e-07</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>27</r><g>42</g><b>53</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>stud</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>12</w><h>25.1</h><l>0.1</l></size>
+        <position><x>6.95</x><y>15.65</y><z>6.338e-08</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>98</r><g>95</g><b>97</b></color>
+        <alpha>0.000</alpha>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="brick">
+        <name>Baseplate</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><w>12</w><h>1.1</h><l>3</l></size>
+        <position><x>6.5</x><y>4.65</y><z>4.371e-08</z></position>
+        <rotation><x>0</x><y>-90</y><z>0</z></rotation>
+        <color><r>98</r><g>95</g><b>97</b></color>
+        <alpha>0.000</alpha>
+        <surface><top>stud</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>6</r></size>
+        <position><x>-71</x><y>87</y><z>-71</z></position>
+        <color><r>245</r><g>205</g><b>47</b></color>
+        <glow>1.000</glow>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>6</r></size>
+        <position><x>-71</x><y>25</y><z>62</z></position>
+        <color><r>4</r><g>174</g><b>235</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>7.5</r></size>
+        <position><x>-71</x><y>87</y><z>-71</z></position>
+        <color><r>245</r><g>205</g><b>47</b></color>
+        <alpha>0.095</alpha>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>9</r></size>
+        <position><x>-71</x><y>87</y><z>-71</z></position>
+        <color><r>245</r><g>205</g><b>47</b></color>
+        <alpha>0.095</alpha>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>12</r></size>
+        <position><x>-71</x><y>25</y><z>62</z></position>
+        <color><r>13</r><g>105</g><b>172</b></color>
+        <alpha>0.815</alpha>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="cylinder-brick">
+        <name>Cylinder</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>12</r><l>1</l></size>
+        <position><x>-71</x><y>25</y><z>62</z></position>
+        <color><r>0</r><g>31</g><b>95</b></color>
+        <alpha>0.116</alpha>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>12</r></size>
+        <position><x>65</x><y>25</y><z>-63</z></position>
+        <color><r>13</r><g>105</g><b>172</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>59</x><y>30</y><z>-59</z></position>
+        <color><r>143</r><g>206</g><b>0</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>61</x><y>31</y><z>-60</z></position>
+        <color><r>143</r><g>206</g><b>0</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>66</x><y>29</y><z>-57</z></position>
+        <color><r>143</r><g>206</g><b>0</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>67</x><y>28</y><z>-56</z></position>
+        <color><r>143</r><g>206</g><b>0</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>67</x><y>26</y><z>-56</z></position>
+        <color><r>143</r><g>206</g><b>0</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>59</x><y>27</y><z>-59</z></position>
+        <color><r>143</r><g>206</g><b>0</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>58.75</x><y>25</y><z>-59.75</z></position>
+        <color><r>143</r><g>206</g><b>0</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>58</x><y>26</y><z>-63</z></position>
+        <color><r>143</r><g>206</g><b>0</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>65</x><y>32.25</y><z>-63</z></position>
+        <color><r>255</r><g>255</g><b>255</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>65</x><y>17.75</y><z>-63</z></position>
+        <color><r>255</r><g>255</g><b>255</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>5</r></size>
+        <position><x>59</x><y>24.25</y><z>-59.5</z></position>
+        <color><r>143</r><g>206</g><b>0</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+      <object type="sphere-brick">
+        <name>Sphere</name>
+        <anchored>true</anchored>
+        <cancollide>true</cancollide>
+        <size><r>11</r></size>
+        <position><x>85.25</x><y>107.5</y><z>62</z></position>
+        <color><r>218</r><g>133</g><b>65</b></color>
+        <surface><top>smooth</top><bottom>smooth</bottom><front>smooth</front><back>smooth</back><left>smooth</left><right>smooth</right></surface>
+        <children/>
+      </object>
+    </children></object>
+    <object type="starter-items"><name>Starter Items</name><children>
+    </children></object>
+    <object type="teams"><name>Teams</name><children>
+    </children></object>
+  </children></object>
+  <respawn><x>0.00</x><y>5.00</y><z>0.00</z><yaw>-90</yaw></respawn>
+  <model>
+    <name>Invis walls</name>
+    <parent>0</parent>
+    <parentIsModel>false</parentIsModel>
+    <children><2 /><4 /><3 /><11 /><12 /><5 /></children>
+  </model>
+  <model>
+    <name>Screen Border</name>
+    <parent>0</parent>
+    <parentIsModel>false</parentIsModel>
+    <children><9 /><7 /><8 /><6 /></children>
+  </model>
+</pw>

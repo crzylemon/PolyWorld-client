@@ -1,0 +1,6 @@
+# Local toolchains (not shipped). Paths are relative to this folder.
+llvm-mingw*/
+mingw-gcc/
+mingw.tgz
+llvm-mingw.tar.xz
+venv/

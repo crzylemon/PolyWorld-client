@@ -1,0 +1,61 @@
+PolyWorld Source License
+Copyright (c) 2026 Crzy / CRZ.Network
+
+This license is the MIT License with additional terms. The MIT grant
+applies except where the Additional Terms below say otherwise.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, and distribute copies of
+the Software, and to permit persons to whom the Software is furnished to
+do so, subject to the following conditions:
+
+The above copyright notice, this permission notice, and the Additional
+Terms shall be included in all copies or substantial portions of the
+Software.
+
+ADDITIONAL TERMS
+
+You may modify the Software to study it, to add features (including things
+like a mod API), or to run it yourself. New features are allowed. Cheats
+and hacks are not.
+
+You may not:
+
+  1. Create exploits, cheats, or other modifications whose purpose is to
+     get an unfair advantage in PolyWorld, or to bypass security.
+
+  2. Distribute an unmodified build of the game (client, server, Studio,
+     or related binaries) outside of PolyWorld.games without prior written
+     permission from the copyright holder.
+
+  3. Remove, replace, or relicense these terms, or distribute the Software
+     under a different license.
+
+  4. Sell the Software, or distribute a version of the game for profit
+     (including paid "repacks", paid forks, or charging for access to the
+     Software itself).
+
+  5. Use the Software to attack, compromise, or otherwise hack any person
+     or system.
+
+  6. Add features that stop other people from playing with you on the
+     official game unless they install your private build. If you ship a
+     change, others should still be able to play the official client
+     without downloading a mod.
+
+Permission for anything in (2) or (4) may be granted in writing by the
+copyright holder. If you are not sure, ask.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+Third-party code bundled with this repository (including but not limited
+to Jolt Physics, ODE, Lua, GLFW, and stb) remains under those projects'
+own licenses. Those licenses are not changed by this file.

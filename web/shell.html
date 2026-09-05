@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polyworld</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; touch-action: none; }
+#canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  outline: none;
+}
+#error-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  color: #ff6b6b;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 1.5rem;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+  z-index: 1000;
+}
+#error-overlay.visible { display: flex; }
+#error-overlay p { max-width: 600px; line-height: 1.6; }
+#loading {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 1.2rem;
+}
+/* Mobile touch controls */
+.touch-controls { display: none; position: fixed; bottom: 0; left: 0; right: 0; top: 0; pointer-events: none; z-index: 100; }
+.touch-controls.visible { display: block; }
+.touch-joystick {
+  position: absolute; bottom: 40px; left: 40px;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(255,255,255,0.3);
+  pointer-events: auto;
+  touch-action: none;
+}
+.touch-joystick-knob {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.5);
+}
+.touch-btn {
+  position: absolute;
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  border: 2px solid rgba(255,255,255,0.4);
+  pointer-events: auto;
+  touch-action: none;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.7);
+  font-family: sans-serif; font-size: 12px; font-weight: bold;
+  user-select: none; -webkit-user-select: none;
+}
+.touch-btn:active { background: rgba(255,255,255,0.4); }
+#btn-jump { bottom: 40px; right: 40px; }
+#btn-fire { bottom: 120px; right: 40px; font-size: 10px; }
+#btn-chat { bottom: 200px; right: 40px; font-size: 10px; }
+</style>
+</head>
+<body>
+<div id="error-overlay" role="alert" aria-live="assertive">
+  <p id="error-message"></p>
+</div>
+<div id="loading">Loading Polyworld...</div>
+<canvas id="canvas" tabindex="0"></canvas>
+
+<!-- Mobile touch controls -->
+<div class="touch-controls" id="touch-controls">
+  <div class="touch-joystick" id="joystick">
+    <div class="touch-joystick-knob" id="joystick-knob"></div>
+  </div>
+  <div class="touch-btn" id="btn-jump">JUMP</div>
+  <div class="touch-btn" id="btn-fire">FIRE</div>
+  <div class="touch-btn" id="btn-chat">CHAT</div>
+</div>
+
+<!-- Mobile chat input overlay -->
+<div id="mobile-chat-overlay" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:600; background:rgba(0,0,0,0.85); padding:10px;">
+  <form id="mobile-chat-form" style="display:flex; gap:8px;">
+    <input type="text" id="mobile-chat-input" maxlength="128" placeholder="Type a message..." autocomplete="off" style="flex:1; padding:10px; border-radius:6px; border:1px solid #555; background:#222; color:#fff; font-size:16px; outline:none;">
+    <button type="submit" style="padding:10px 16px; border-radius:6px; background:#4caf50; color:#fff; border:none; font-size:14px; font-weight:bold;">Send</button>
+  </form>
+</div>
+
+<script>
+// WebGL 2.0 Detection
+(function() {
+  var canvas = document.getElementById('canvas');
+  var gl = canvas.getContext('webgl2');
+  if (!gl) {
+    var overlay = document.getElementById('error-overlay');
+    var msg = document.getElementById('error-message');
+    overlay.classList.add('visible');
+    msg.textContent = 'WebGL 2.0 is required but not supported by your browser. ' +
+      'Please use a modern browser such as Chrome, Firefox, or Edge.';
+    document.getElementById('loading').style.display = 'none';
+    throw new Error('WebGL 2.0 not available');
+  }
+})();
+
+// Key code mapping
+var KEY_W = 87, KEY_A = 65, KEY_S = 83, KEY_D = 68, KEY_SPACE = 32;
+
+// Input forwarding to WASM exports
+var canvas = document.getElementById('canvas');
+
+canvas.addEventListener('keydown', function(e) {
+  if (e.repeat) return;
+  e.preventDefault();
+  if (Module && Module._input_on_keydown) {
+    Module._input_on_keydown(e.keyCode);
+  }
+});
+
+canvas.addEventListener('keyup', function(e) {
+  e.preventDefault();
+  if (Module && Module._input_on_keyup) {
+    Module._input_on_keyup(e.keyCode);
+  }
+});
+
+// CSS/client coords → canvas framebuffer pixels (HiDPI / devicePixelRatio)
+function canvasMousePos(e) {
+  var rect = canvas.getBoundingClientRect();
+  var sx = rect.width > 0 ? canvas.width / rect.width : 1;
+  var sy = rect.height > 0 ? canvas.height / rect.height : 1;
+  return {
+    x: (e.clientX - rect.left) * sx,
+    y: (e.clientY - rect.top) * sy
+  };
+}
+
+canvas.addEventListener('mousedown', function(e) {
+  e.preventDefault();
+  var p = canvasMousePos(e);
+  if (Module && Module._input_set_mouse_pos) Module._input_set_mouse_pos(p.x, p.y);
+  if (e.button === 2) window._pw_rmb_held = true;
+  if (Module && Module._input_on_mousedown) {
+    Module._input_on_mousedown(e.button);
+  }
+});
+
+canvas.addEventListener('mouseup', function(e) {
+  e.preventDefault();
+  if (e.button === 2) window._pw_rmb_held = false;
+  if (Module && Module._input_on_mouseup) {
+    Module._input_on_mouseup(e.button);
+  }
+});
+
+canvas.addEventListener('mousemove', function(e) {
+  if (Module && Module._input_on_mousemove && window._pw_rmb_held) {
+    // Without pointer lock, compute delta from last position
+    var dx = e.movementX || (e.clientX - (window._pw_lastMX || e.clientX));
+    var dy = e.movementY || (e.clientY - (window._pw_lastMY || e.clientY));
+    Module._input_on_mousemove(dx, dy);
+  }
+  window._pw_lastMX = e.clientX;
+  window._pw_lastMY = e.clientY;
+  var p = canvasMousePos(e);
+  if (Module && Module._input_set_mouse_pos) Module._input_set_mouse_pos(p.x, p.y);
+});
+
+canvas.addEventListener('wheel', function(e) {
+  e.preventDefault();
+  if (Module && Module._input_on_scroll) {
+    // Normalize scroll delta
+    var delta = e.deltaY > 0 ? 1.0 : (e.deltaY < 0 ? -1.0 : 0.0);
+    Module._input_on_scroll(delta);
+  }
+}, { passive: false });
+
+// Prevent context menu on right-click
+canvas.addEventListener('contextmenu', function(e) {
+  e.preventDefault();
+});
+
+// Focus canvas on click
+canvas.addEventListener('click', function() {
+  canvas.focus();
+});
+
+// Pointer lock for smoother mouse control
+canvas.addEventListener('mousedown', function(e) {
+  if (e.button === 2) { // Right mouse button
+    // No pointer lock on WASM — use relative mouse via movementX/Y only while button held
+  }
+});
+
+document.addEventListener('pointerlockchange', function() {
+  // Pointer lock state changed - no action needed
+});
+
+// Resize handling - match play.php (backing store = CSS size × DPR)
+function resizeCanvas() {
+  var canvas = document.getElementById('canvas');
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  if (Module && Module._resize_canvas) {
+    Module._resize_canvas(canvas.width, canvas.height);
+  }
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Close WebSocket on page unload so server detects disconnect immediately
+window.addEventListener('beforeunload', function() {
+  try {
+    if (window._pw_bgm) { window._pw_bgm.pause(); window._pw_bgm.removeAttribute('src'); window._pw_bgm.load(); }
+  } catch (e) {}
+  if (window._pw_ws && window._pw_ws.readyState === 1) {
+    // Send leave packet: [type(1)][len(2)] = [0x12][0x00][0x00]
+    var leave = new Uint8Array([0x12, 0x00, 0x00]);
+    try { window._pw_ws.send(leave.buffer); } catch(e) {}
+    try { window._pw_ws.close(); } catch(e) {}
+    window._pw_ws = null;
+  }
+});
+
+// Mobile detection and touch controls
+var isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+if (isMobile) {
+  document.getElementById('touch-controls').classList.add('visible');
+}
+
+// Tell WASM about mobile mode after init
+var _mobileInterval = setInterval(function() {
+  if (Module && Module.calledRun && isMobile) {
+    try { Module._set_mobile_mode(1); } catch(e) {}
+    clearInterval(_mobileInterval);
+  }
+}, 500);
+
+// Virtual joystick
+(function() {
+  var joystick = document.getElementById('joystick');
+  var knob = document.getElementById('joystick-knob');
+  var joyActive = false, joyId = null;
+  var joyX = 0, joyY = 0; // -1 to 1
+  var joyCenterX = 0, joyCenterY = 0;
+  var joyRadius = 45;
+
+  joystick.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    var t = e.changedTouches[0];
+    joyId = t.identifier;
+    joyActive = true;
+    var rect = joystick.getBoundingClientRect();
+    joyCenterX = rect.left + rect.width / 2;
+    joyCenterY = rect.top + rect.height / 2;
+    updateJoy(t.clientX, t.clientY);
+  });
+
+  window.addEventListener('touchmove', function(e) {
+    if (!joyActive) return;
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joyId) {
+        updateJoy(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+        break;
+      }
+    }
+  });
+
+  window.addEventListener('touchend', function(e) {
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === joyId) {
+        joyActive = false; joyId = null;
+        joyX = 0; joyY = 0;
+        knob.style.transform = 'translate(-50%, -50%)';
+        applyJoystick();
+        break;
+      }
+    }
+  });
+
+  function updateJoy(tx, ty) {
+    var dx = tx - joyCenterX;
+    var dy = ty - joyCenterY;
+    var dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist > joyRadius) { dx = dx/dist*joyRadius; dy = dy/dist*joyRadius; dist = joyRadius; }
+    joyX = dx / joyRadius;
+    joyY = dy / joyRadius;
+    knob.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px))';
+    applyJoystick();
+  }
+
+  function applyJoystick() {
+    if (!Module || !Module._input_on_keyup) return;
+    // Threshold
+    var threshold = 0.3;
+    // W/S
+    if (joyY < -threshold) { Module._input_on_keydown(KEY_W); } else { Module._input_on_keyup(KEY_W); }
+    if (joyY > threshold) { Module._input_on_keydown(KEY_S); } else { Module._input_on_keyup(KEY_S); }
+    // A/D
+    if (joyX < -threshold) { Module._input_on_keydown(KEY_A); } else { Module._input_on_keyup(KEY_A); }
+    if (joyX > threshold) { Module._input_on_keydown(KEY_D); } else { Module._input_on_keyup(KEY_D); }
+  }
+})();
+
+// Jump button
+document.getElementById('btn-jump').addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  if (Module && Module._input_on_keydown) Module._input_on_keydown(KEY_SPACE);
+});
+document.getElementById('btn-jump').addEventListener('touchend', function(e) {
+  e.preventDefault();
+  if (Module && Module._input_on_keyup) Module._input_on_keyup(KEY_SPACE);
+});
+
+// Fire button (left click)
+document.getElementById('btn-fire').addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  if (Module && Module._input_on_mousedown) Module._input_on_mousedown(0);
+});
+document.getElementById('btn-fire').addEventListener('touchend', function(e) {
+  e.preventDefault();
+  if (Module && Module._input_on_mouseup) Module._input_on_mouseup(0);
+});
+
+// Chat button — opens mobile text input
+document.getElementById('btn-chat').addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  var overlay = document.getElementById('mobile-chat-overlay');
+  overlay.style.display = 'block';
+  document.getElementById('mobile-chat-input').focus();
+});
+
+document.getElementById('mobile-chat-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var input = document.getElementById('mobile-chat-input');
+  var msg = input.value.trim();
+  if (msg && Module && Module._chat_handle_key) {
+    Module._chat_handle_key(47, 0); // '/' to focus chat
+    for (var i = 0; i < msg.length; i++) {
+      Module._chat_handle_char(msg.charCodeAt(i));
+    }
+    Module._chat_handle_key(13, 0); // Enter to send
+  }
+  input.value = '';
+  document.getElementById('mobile-chat-overlay').style.display = 'none';
+  canvas.focus();
+});
+
+document.getElementById('mobile-chat-overlay').addEventListener('touchstart', function(e) {
+  if (e.target === this) { this.style.display = 'none'; canvas.focus(); }
+});
+
+// Camera orbit via touch on right half of screen (not on buttons)
+(function() {
+  var camTouchId = null;
+  var camLastX = 0, camLastY = 0;
+  var canvasEl = document.getElementById('canvas');
+
+  canvasEl.addEventListener('touchstart', function(e) {
+    // Only use touches on the right half that aren't on controls
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      if (t.clientX > window.innerWidth * 0.35 && camTouchId === null) {
+        camTouchId = t.identifier;
+        camLastX = t.clientX;
+        camLastY = t.clientY;
+        break;
+      }
+    }
+  });
+
+  canvasEl.addEventListener('touchmove', function(e) {
+    if (camTouchId === null) return;
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      if (t.identifier === camTouchId) {
+        var dx = t.clientX - camLastX;
+        var dy = t.clientY - camLastY;
+        if (Module && Module._input_on_mousemove) {
+          Module._input_on_mousemove(dx, dy);
+        }
+        // Also simulate right mouse held for orbit
+        if (Module && Module._input_on_mousedown) Module._input_on_mousedown(2);
+        camLastX = t.clientX;
+        camLastY = t.clientY;
+        break;
+      }
+    }
+  });
+
+  window.addEventListener('touchend', function(e) {
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === camTouchId) {
+        camTouchId = null;
+        if (Module && Module._input_on_mouseup) Module._input_on_mouseup(2);
+        break;
+      }
+    }
+  });
+})();
+
+// Emscripten Module configuration
+var Module = {
+  canvas: document.getElementById('canvas'),
+  onRuntimeInitialized: function() {
+    document.getElementById('loading').style.display = 'none';
+    canvas.focus();
+  },
+  print: function(text) { console.log(text); },
+  printErr: function(text) { console.error(text); }
+};
+</script>
+
+{{{ SCRIPT }}}
+</body>
+</html>
